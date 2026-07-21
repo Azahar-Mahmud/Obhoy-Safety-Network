@@ -4,6 +4,8 @@ const mongoose = require('mongoose');
 
 const authRoutes = require('./routes/auth');
 const contactsRoutes = require('./routes/contacts');
+const sosRoutes = require('./routes/sos');
+const trackRoutes = require('./routes/track');
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -16,6 +18,8 @@ app.get('/', (req, res) => {
 
 app.use('/auth', authRoutes);
 app.use('/contacts', contactsRoutes);
+app.use('/sos', sosRoutes);
+app.use('/track', trackRoutes);
 
 mongoose.connect(process.env.MONGODB_URI)
   .then(() => console.log('MongoDB connected'))
