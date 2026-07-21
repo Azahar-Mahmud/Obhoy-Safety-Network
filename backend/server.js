@@ -2,6 +2,9 @@ const express = require('express');
 require('dotenv').config();
 const mongoose = require('mongoose');
 
+const authRoutes = require('./routes/auth');
+const contactsRoutes = require('./routes/contacts');
+
 const app = express();
 const PORT = process.env.PORT || 5000;
 
@@ -10,6 +13,9 @@ app.use(express.json());
 app.get('/', (req, res) => {
   res.json({ status: 'ok', message: 'Obhoy backend is running' });
 });
+
+app.use('/auth', authRoutes);
+app.use('/contacts', contactsRoutes);
 
 mongoose.connect(process.env.MONGODB_URI)
   .then(() => console.log('MongoDB connected'))
