@@ -10,7 +10,9 @@ export default function HomeScreen({ navigation }: Props) {
   return (
     <View style={styles.container}>
       <Text style={styles.title}>Obhoy</Text>
-      <Text style={styles.subtitle}>Auth + Trusted Contacts are live. SOS comes next.</Text>
+      <TouchableOpacity style={styles.sosButton} onPress={() => navigation.navigate('SosCountdown')}>
+        <Text style={styles.sosText}>SOS</Text>
+      </TouchableOpacity>
       <TouchableOpacity style={styles.button} onPress={() => navigation.navigate('ContactsList')}>
         <Text style={styles.buttonText}>Trusted Contacts</Text>
       </TouchableOpacity>
@@ -22,10 +24,11 @@ export default function HomeScreen({ navigation }: Props) {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, padding: 24, justifyContent: 'center' },
-  title: { fontSize: 28, fontWeight: 'bold', color: '#6B21A8', marginBottom: 8 },
-  subtitle: { fontSize: 14, color: '#6B7280', marginBottom: 32 },
-  button: { backgroundColor: '#6B21A8', borderRadius: 8, padding: 16, alignItems: 'center' },
+  container: { flex: 1, padding: 24, justifyContent: 'center', alignItems: 'center' },
+  title: { fontSize: 28, fontWeight: 'bold', color: '#6B21A8', marginBottom: 32 },
+  sosButton: { width: 160, height: 160, borderRadius: 80, backgroundColor: '#DC2626', justifyContent: 'center', alignItems: 'center', marginBottom: 40, elevation: 4 },
+  sosText: { color: '#fff', fontSize: 32, fontWeight: 'bold' },
+  button: { backgroundColor: '#6B21A8', borderRadius: 8, padding: 16, alignItems: 'center', width: '100%' },
   buttonText: { color: '#fff', fontSize: 18, fontWeight: 'bold' },
   signOutButton: { marginTop: 24, alignItems: 'center' },
   signOutText: { color: '#DC2626', fontSize: 15 },

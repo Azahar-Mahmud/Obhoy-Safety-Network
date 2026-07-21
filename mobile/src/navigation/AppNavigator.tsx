@@ -1,3 +1,5 @@
+import SosCountdownScreen from '../screens/SosCountdownScreen';
+import SosConfirmationScreen from '../screens/SosConfirmationScreen';
 import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { useAuth } from '../context/AuthContext';
@@ -17,6 +19,12 @@ export type RootStackParamList = {
   Home: undefined;
   ContactsList: undefined;
   AddContact: undefined;
+  SosCountdown: undefined;
+  SosConfirmation: {
+    channel: 'backend' | 'native' | 'failed';
+    contactsNotified: { name: string; phone: string; status: 'sent' | 'failed' }[];
+    error?: string;
+  };
 };
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
@@ -40,6 +48,8 @@ export default function AppNavigator() {
             <Stack.Screen name="Home" component={HomeScreen} options={{ title: 'Obhoy' }} />
             <Stack.Screen name="ContactsList" component={ContactsListScreen} options={{ title: 'Trusted Contacts' }} />
             <Stack.Screen name="AddContact" component={AddContactScreen} options={{ title: 'Add Contact' }} />
+            <Stack.Screen name="SosCountdown" component={SosCountdownScreen} options={{ headerShown: false }} />
+            <Stack.Screen name="SosConfirmation" component={SosConfirmationScreen} options={{ title: 'SOS Status' }} />
           </>
         )}
       </Stack.Navigator>
