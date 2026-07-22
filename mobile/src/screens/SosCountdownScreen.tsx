@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
+import * as SecureStore from 'expo-secure-store';
 import { RootStackParamList } from '../navigation/AppNavigator';
 import { apiRequest } from '../api/client';
 import { triggerSos } from '../utils/sos';
@@ -14,8 +15,27 @@ export default function SosCountdownScreen({ navigation }: Props) {
 
   const fireSos = useCallback(async () => {
     setSending(true);
+    let contacts = [];
     try {
-      const contacts = await apiRequest('/contacts');
+      // 1. Try to fetch fresh contacts from the server
+      contacts = await apiRequest('/contacts');
+      await SecureStore.setItemAsync('obhoy_contacts', JSON.stringify(contacts));
+    } catch (err) {
+      // 2. Fallback: If offline, load cached contacts
+      const cached = await SecureStore.getItemAsync('obhoy_contacts');
+      if (cached) {
+        contacts = JSON.parse(cached);
+      } else {
+        navigation.replace('SosConfirmation', {
+          channel: 'failed',
+          contactsNotified: [],
+          error: 'No internet connection, and no cached trusted contacts found.'
+        });
+        return;
+      }
+    }
+
+    try {
       const result = await triggerSos(contacts);
       navigation.replace('SosConfirmation', result);
     } catch (err: any) {

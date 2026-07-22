@@ -1,12 +1,25 @@
+import { useEffect } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
+import * as SecureStore from 'expo-secure-store';
 import { RootStackParamList } from '../navigation/AppNavigator';
 import { useAuth } from '../context/AuthContext';
+import { apiRequest } from '../api/client';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'Home'>;
 
 export default function HomeScreen({ navigation }: Props) {
   const { signOut } = useAuth();
+
+  // Cache contacts in the background for offline use
+  useEffect(() => {
+    apiRequest('/contacts')
+      .then((contacts) => {
+        SecureStore.setItemAsync('obhoy_contacts', JSON.stringify(contacts));
+      })
+      .catch(() => {});
+  }, []);
+
   return (
     <View style={styles.container}>
       <Text style={styles.title}>Obhoy</Text>
