@@ -1,3 +1,5 @@
+import JourneySetupScreen from '../screens/JourneySetupScreen';
+import ActiveJourneyScreen from '../screens/ActiveJourneyScreen';
 import SosCountdownScreen from '../screens/SosCountdownScreen';
 import SosConfirmationScreen from '../screens/SosConfirmationScreen';
 import { NavigationContainer } from '@react-navigation/native';
@@ -25,6 +27,8 @@ export type RootStackParamList = {
     contactsNotified: { name: string; phone: string; status: 'sent' | 'failed' }[];
     error?: string;
   };
+  JourneySetup: undefined;
+  ActiveJourney: { journeyId: string; checkinIntervalMinutes: number };
 };
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
@@ -50,6 +54,8 @@ export default function AppNavigator() {
             <Stack.Screen name="AddContact" component={AddContactScreen} options={{ title: 'Add Contact' }} />
             <Stack.Screen name="SosCountdown" component={SosCountdownScreen} options={{ headerShown: false }} />
             <Stack.Screen name="SosConfirmation" component={SosConfirmationScreen} options={{ title: 'SOS Status' }} />
+            <Stack.Screen name="JourneySetup" component={JourneySetupScreen} options={{ title: 'Start Journey' }} />
+            <Stack.Screen name="ActiveJourney" component={ActiveJourneyScreen} options={{ title: 'Journey Active', headerBackVisible: false }} />
           </>
         )}
       </Stack.Navigator>

@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { MapContainer, TileLayer, Marker, Popup } from 'react-leaflet';
 import 'leaflet/dist/leaflet.css';
 
-const API_BASE_URL = 'https://obhoy-safety-network.onrender.com'; // ← Your actual Render backend URL
+const API_BASE_URL = 'https://obhoy-safety-network.onrender.com'; // ← Your Render backend URL
 
 function getTokenFromUrl() {
   const parts = window.location.pathname.split('/').filter(Boolean);
@@ -32,13 +32,19 @@ export default function App() {
   if (error) return <div style={styles.center}>{error}</div>;
   if (!data) return <div style={styles.center}>Loading...</div>;
 
-  const { location, status, updatedAt } = data;
+  const { location, status, updatedAt, kind, destinationLabel } = data;
+
+  const bannerText = kind === 'sos'
+    ? (status === 'active' ? `🔴 SOS Active — last updated ${new Date(updatedAt).toLocaleTimeString()}` : '✅ Resolved')
+    : status === 'active'
+      ? `🟠 On the way to ${destinationLabel || 'destination'} — last updated ${new Date(updatedAt).toLocaleTimeString()}`
+      : status === 'arrived'
+        ? '✅ Arrived safely'
+        : '🔴 Missed a check-in — contacts alerted';
 
   return (
     <div style={styles.wrap}>
-      <div style={styles.banner}>
-        {status === 'active' ? `🔴 Active — last updated ${new Date(updatedAt).toLocaleTimeString()}` : '✅ Resolved'}
-      </div>
+      <div style={styles.banner}>{bannerText}</div>
       {location ? (
         <MapContainer center={[location.lat, location.lng]} zoom={16} style={styles.map}>
           <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" attribution="&copy; OpenStreetMap contributors" />
