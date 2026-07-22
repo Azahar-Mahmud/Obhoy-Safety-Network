@@ -6,7 +6,7 @@ import { RootStackParamList } from '../navigation/AppNavigator';
 import { apiRequest } from '../api/client';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'JourneySetup'>;
-const INTERVALS = [15, 30, 60];
+const INTERVALS = [1, 15, 30, 60];
 
 export default function JourneySetupScreen({ navigation }: Props) {
   const [destinationLabel, setDestinationLabel] = useState('');
