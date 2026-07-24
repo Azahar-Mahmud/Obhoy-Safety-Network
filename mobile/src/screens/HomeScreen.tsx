@@ -48,6 +48,12 @@ export default function HomeScreen({ navigation }: Props) {
       <TouchableOpacity style={styles.button} onPress={() => navigation.navigate('ContactsList')}>
         <Text style={styles.buttonText}>Trusted Contacts</Text>
       </TouchableOpacity>
+      <TouchableOpacity style={styles.button} onPress={() => navigation.navigate('Directory')}>
+        <Text style={styles.buttonText}>Emergency Directory</Text>
+      </TouchableOpacity>
+      <TouchableOpacity style={styles.button} onPress={() => navigation.navigate('Map')}>
+        <Text style={styles.buttonText}>Unsafe Zone Map</Text>
+      </TouchableOpacity>
       <TouchableOpacity style={styles.signOutButton} onPress={signOut}>
         <Text style={styles.signOutText}>Log out</Text>
       </TouchableOpacity>

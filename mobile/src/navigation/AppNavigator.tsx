@@ -1,3 +1,9 @@
+import MapScreen from '../screens/MapScreen';
+import ReportCategoryScreen from '../screens/ReportCategoryScreen';
+import ReportConfirmScreen from '../screens/ReportConfirmScreen';
+import ReportDescriptionScreen from '../screens/ReportDescriptionScreen';
+import ReportSuccessScreen from '../screens/ReportSuccessScreen';
+import DirectoryScreen from '../screens/DirectoryScreen';
 import JourneySetupScreen from '../screens/JourneySetupScreen';
 import ActiveJourneyScreen from '../screens/ActiveJourneyScreen';
 import SosCountdownScreen from '../screens/SosCountdownScreen';
@@ -29,6 +35,12 @@ export type RootStackParamList = {
   };
   JourneySetup: undefined;
   ActiveJourney: { journeyId: string; checkinIntervalMinutes: number };
+  Directory: undefined;
+  Map: undefined;
+    ReportCategory: undefined;
+    ReportConfirm: { category: string };
+    ReportDescription: { category: string; lat: number; lng: number };
+    ReportSuccess: undefined;
 };
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
@@ -56,6 +68,12 @@ export default function AppNavigator() {
             <Stack.Screen name="SosConfirmation" component={SosConfirmationScreen} options={{ title: 'SOS Status' }} />
             <Stack.Screen name="JourneySetup" component={JourneySetupScreen} options={{ title: 'Start Journey' }} />
             <Stack.Screen name="ActiveJourney" component={ActiveJourneyScreen} options={{ title: 'Journey Active', headerBackVisible: false }} />
+            <Stack.Screen name="Directory" component={DirectoryScreen} options={{ title: 'Emergency Directory' }} />
+            <Stack.Screen name="Map" component={MapScreen} options={{ title: 'Unsafe Zone Map' }} />
+            <Stack.Screen name="ReportCategory" component={ReportCategoryScreen} options={{ title: 'Report' }} />
+            <Stack.Screen name="ReportConfirm" component={ReportConfirmScreen} options={{ title: 'Confirm Location' }} />
+            <Stack.Screen name="ReportDescription" component={ReportDescriptionScreen} options={{ title: 'Add Details' }} />
+            <Stack.Screen name="ReportSuccess" component={ReportSuccessScreen} options={{ headerShown: false }} />
           </>
         )}
       </Stack.Navigator>

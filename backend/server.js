@@ -9,6 +9,7 @@ const sosRoutes = require('./routes/sos');
 const trackRoutes = require('./routes/track');
 const journeyRoutes = require('./routes/journey');
 const internalRoutes = require('./routes/internal');
+const reportsRoutes = require('./routes/reports');
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -26,6 +27,7 @@ app.use('/sos', sosRoutes);
 app.use('/track', trackRoutes);
 app.use('/journey', journeyRoutes);
 app.use('/internal', internalRoutes);
+app.use('/reports', reportsRoutes);
 
 mongoose.connect(process.env.MONGODB_URI)
   .then(() => console.log('MongoDB connected'))
