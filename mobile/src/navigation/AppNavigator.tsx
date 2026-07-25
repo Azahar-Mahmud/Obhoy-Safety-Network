@@ -1,23 +1,37 @@
+import NearbyAlertsScreen from '../screens/NearbyAlertsScreen';
+import React from 'react';
+import { View, ActivityIndicator } from 'react-native';
+import { NavigationContainer } from '@react-navigation/native';
+import { createNativeStackNavigator } from '@react-navigation/native-stack';
+
+// Contexts
+import { useAuth } from '../context/AuthContext';
+import { useDiscreetMode } from '../context/DiscreetModeContext';
+
+// Auth Screens
+import PhoneEntryScreen from '../screens/PhoneEntryScreen';
+import OtpScreen from '../screens/OtpScreen';
+import SetPinScreen from '../screens/SetPinScreen';
+import LoginPinScreen from '../screens/LoginPinScreen';
+
+// Main App Screens
+import HomeScreen from '../screens/HomeScreen';
+import ContactsListScreen from '../screens/ContactsListScreen';
+import AddContactScreen from '../screens/AddContactScreen';
+import SosCountdownScreen from '../screens/SosCountdownScreen';
+import SosConfirmationScreen from '../screens/SosConfirmationScreen';
+import JourneySetupScreen from '../screens/JourneySetupScreen';
+import ActiveJourneyScreen from '../screens/ActiveJourneyScreen';
+import DirectoryScreen from '../screens/DirectoryScreen';
 import MapScreen from '../screens/MapScreen';
 import ReportCategoryScreen from '../screens/ReportCategoryScreen';
 import ReportConfirmScreen from '../screens/ReportConfirmScreen';
 import ReportDescriptionScreen from '../screens/ReportDescriptionScreen';
 import ReportSuccessScreen from '../screens/ReportSuccessScreen';
-import DirectoryScreen from '../screens/DirectoryScreen';
-import JourneySetupScreen from '../screens/JourneySetupScreen';
-import ActiveJourneyScreen from '../screens/ActiveJourneyScreen';
-import SosCountdownScreen from '../screens/SosCountdownScreen';
-import SosConfirmationScreen from '../screens/SosConfirmationScreen';
-import { NavigationContainer } from '@react-navigation/native';
-import { createNativeStackNavigator } from '@react-navigation/native-stack';
-import { useAuth } from '../context/AuthContext';
-import PhoneEntryScreen from '../screens/PhoneEntryScreen';
-import OtpScreen from '../screens/OtpScreen';
-import SetPinScreen from '../screens/SetPinScreen';
-import LoginPinScreen from '../screens/LoginPinScreen';
-import HomeScreen from '../screens/HomeScreen';
-import ContactsListScreen from '../screens/ContactsListScreen';
-import AddContactScreen from '../screens/AddContactScreen';
+
+// Discreet Mode Screens
+import CalculatorScreen from '../screens/CalculatorScreen';
+import SettingsScreen from '../screens/SettingsScreen';
 
 export type RootStackParamList = {
   PhoneEntry: undefined;
@@ -29,30 +43,46 @@ export type RootStackParamList = {
   AddContact: undefined;
   SosCountdown: undefined;
   SosConfirmation: {
-    channel: 'backend' | 'native' | 'failed';
+    channel: 'backend' | 'native' | 'lan' | 'failed';
     contactsNotified: { name: string; phone: string; status: 'sent' | 'failed' }[];
+    lanBroadcastSent?: boolean;
     error?: string;
   };
   JourneySetup: undefined;
   ActiveJourney: { journeyId: string; checkinIntervalMinutes: number };
   Directory: undefined;
   Map: undefined;
-    ReportCategory: undefined;
-    ReportConfirm: { category: string };
-    ReportDescription: { category: string; lat: number; lng: number };
-    ReportSuccess: undefined;
+  ReportCategory: undefined;
+  ReportConfirm: { category: string };
+  ReportDescription: { category: string; lat: number; lng: number };
+  ReportSuccess: undefined;
+  Calculator: undefined;
+  Settings: undefined;
+  NearbyAlerts: undefined;
 };
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
 
 export default function AppNavigator() {
-  const { token, isLoading } = useAuth();
-  if (isLoading) return null;
+  const { token, isLoading: authLoading } = useAuth();
+  const { discreetModeEnabled, isUnlocked, isLoading: discreetLoading } = useDiscreetMode();
+
+  if (authLoading || discreetLoading) {
+    return (
+      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#ffffff' }}>
+        <ActivityIndicator size="large" color="#6B21A8" />
+      </View>
+    );
+  }
+
+  const showDisguise = discreetModeEnabled && !isUnlocked;
 
   return (
     <NavigationContainer>
-      <Stack.Navigator>
-        {!token ? (
+      <Stack.Navigator screenOptions={{ headerShown: !showDisguise }}>
+        {showDisguise ? (
+          <Stack.Screen name="Calculator" component={CalculatorScreen} options={{ headerShown: false }} />
+        ) : !token ? (
           <>
             <Stack.Screen name="PhoneEntry" component={PhoneEntryScreen} options={{ title: 'Obhoy' }} />
             <Stack.Screen name="Otp" component={OtpScreen} options={{ title: 'Verify' }} />
@@ -74,6 +104,8 @@ export default function AppNavigator() {
             <Stack.Screen name="ReportConfirm" component={ReportConfirmScreen} options={{ title: 'Confirm Location' }} />
             <Stack.Screen name="ReportDescription" component={ReportDescriptionScreen} options={{ title: 'Add Details' }} />
             <Stack.Screen name="ReportSuccess" component={ReportSuccessScreen} options={{ headerShown: false }} />
+            <Stack.Screen name="Settings" component={SettingsScreen} options={{ title: 'Settings' }} />
+            <Stack.Screen name="NearbyAlerts" component={NearbyAlertsScreen} options={{ title: 'Nearby Alerts' }} />
           </>
         )}
       </Stack.Navigator>

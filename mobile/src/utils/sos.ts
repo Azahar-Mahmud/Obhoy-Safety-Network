@@ -1,21 +1,41 @@
 import * as Location from 'expo-location';
 import * as SmsManager from 'expo-sms-manager';
+import { PermissionsAndroid, Platform } from 'react-native';
 import { apiRequest } from '../api/client';
+import { sendLanAlert } from './lanAlert';
+
+async function ensureSmsPermission(): Promise<boolean> {
+  if (Platform.OS !== 'android') return true;
+  const granted = await PermissionsAndroid.requestMultiple([
+    PermissionsAndroid.PERMISSIONS.SEND_SMS,
+    PermissionsAndroid.PERMISSIONS.READ_SMS,
+    PermissionsAndroid.PERMISSIONS.RECEIVE_SMS,
+    PermissionsAndroid.PERMISSIONS.READ_PHONE_STATE,
+  ]);
+  return granted[PermissionsAndroid.PERMISSIONS.SEND_SMS] === PermissionsAndroid.RESULTS.GRANTED;
+}
 
 type Contact = { name: string; phone: string };
 type NotifyResult = { name: string; phone: string; status: 'sent' | 'failed' };
-export type SosResult = { channel: 'backend' | 'native'; contactsNotified: NotifyResult[] };
+
+export type SosResult = {
+  channel: 'backend' | 'native' | 'lan';
+  contactsNotified: NotifyResult[];
+  lanBroadcastSent?: boolean;
+};
 
 export async function triggerSos(contacts: Contact[]): Promise<SosResult> {
   const { status } = await Location.requestForegroundPermissionsAsync();
   if (status !== 'granted') {
     throw new Error('Location permission is required to send SOS.');
   }
+
   const position = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.High });
   const lat = position.coords.latitude;
   const lng = position.coords.longitude;
   const accuracy = position.coords.accuracy ?? 0;
 
+  // Layer 1: Server / Internet API
   try {
     const data = await apiRequest('/sos/trigger', {
       method: 'POST',
@@ -23,18 +43,37 @@ export async function triggerSos(contacts: Contact[]): Promise<SosResult> {
     });
     return { channel: 'backend', contactsNotified: data.contactsNotified };
   } catch {
-    // No internet, or backend unreachable — send directly from this phone's own SIM instead.
+    // Layer 2: Native Cellular SMS Fallback
     const mapsLink = `https://www.google.com/maps?q=${lat},${lng}`;
     const message = `Obhoy Alert: I need help. My location: ${mapsLink}`;
     const results: NotifyResult[] = [];
-    for (const contact of contacts) {
-      try {
-        await SmsManager.sendSms(contact.phone, message, {});
-        results.push({ name: contact.name, phone: contact.phone, status: 'sent' });
-      } catch {
-        results.push({ name: contact.name, phone: contact.phone, status: 'failed' });
+    const smsAllowed = await ensureSmsPermission();
+
+    if (smsAllowed) {
+      for (const contact of contacts) {
+        try {
+          const result = await SmsManager.sendSms(contact.phone, message, {
+            checkSignal: true, // makes the package check radio availability before attempting
+          });
+          console.log('SMS result for', contact.phone, JSON.stringify(result));
+          results.push({
+            name: contact.name,
+            phone: contact.phone,
+            status: result?.sent === 'sent' ? 'sent' : 'failed',
+          });
+        } catch {
+          results.push({ name: contact.name, phone: contact.phone, status: 'failed' });
+        }
       }
     }
-    return { channel: 'native', contactsNotified: results };
+
+    const allFailed = results.length === 0 || results.every((r) => r.status === 'failed');
+    if (!allFailed) {
+      return { channel: 'native', contactsNotified: results };
+    }
+
+    // Layer 3: Local WiFi/LAN UDP Broadcast Fallback
+    const lanBroadcastSent = await sendLanAlert(lat, lng, 'Obhoy Alert: I need help nearby.');
+    return { channel: 'lan', contactsNotified: results, lanBroadcastSent };
   }
 }

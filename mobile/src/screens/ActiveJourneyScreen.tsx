@@ -1,3 +1,4 @@
+import { useDiscreetMode } from '../context/DiscreetModeContext';
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, Alert } from 'react-native';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
@@ -21,6 +22,7 @@ const LOCATION_UPDATE_MS = 60000;
 
 export default function ActiveJourneyScreen({ route, navigation }: Props) {
   const { journeyId, checkinIntervalMinutes } = route.params;
+  const { discreetModeEnabled } = useDiscreetMode();
   const [lastCheckin, setLastCheckin] = useState(new Date());
   const notificationIdRef = useRef<string | null>(null);
 
@@ -29,14 +31,20 @@ export default function ActiveJourneyScreen({ route, navigation }: Props) {
     if (notificationIdRef.current) {
       await Notifications.cancelScheduledNotificationAsync(notificationIdRef.current);
     }
+
+    const content = discreetModeEnabled
+      ? { title: 'Reminder', body: 'You have an open item to check.' }
+      : { title: 'Obhoy Check-in', body: "Open the app to confirm you're okay." };
+
     notificationIdRef.current = await Notifications.scheduleNotificationAsync({
-      content: { title: 'Obhoy Check-in', body: "Open the app to confirm you're okay." },
+      content,
       trigger: { 
         type: Notifications.SchedulableTriggerInputTypes.TIME_INTERVAL,
         seconds: minutes * 60,
+        channelId: discreetModeEnabled ? 'checkin-discreet' : 'checkin-default',
       },
     });
-  }, []);
+  }, [discreetModeEnabled]);
 
   useEffect(() => {
     scheduleReminder(checkinIntervalMinutes);

@@ -1,3 +1,4 @@
+import { saveLocalPinVerifier } from '../utils/localPin';
 import { useState } from 'react';
 import { View, Text, TextInput, TouchableOpacity, StyleSheet } from 'react-native';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
@@ -25,6 +26,7 @@ export default function SetPinScreen({ route }: Props) {
         method: 'POST',
         body: JSON.stringify({ phone, pin }),
       });
+      await saveLocalPinVerifier(pin);
       await signIn(data.token);
     } catch (err: any) {
       setError(err.message || 'Something went wrong.');

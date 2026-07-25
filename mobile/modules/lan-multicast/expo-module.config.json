@@ -1,0 +1,9 @@
+{
+  "platforms": ["apple", "android", "web"],
+  "apple": {
+    "modules": ["LanMulticastModule"]
+  },
+  "android": {
+    "modules": ["expo.modules.lanmulticast.LanMulticastModule"]
+  }
+}
