@@ -42,10 +42,11 @@ export type RootStackParamList = {
   ContactsList: undefined;
   AddContact: undefined;
   SosCountdown: undefined;
-  SosConfirmation: {
-    channel: 'backend' | 'native' | 'lan' | 'failed';
+SosConfirmation: {
+    channel: 'backend' | 'native' | 'lan' | 'mesh' | 'failed';
     contactsNotified: { name: string; phone: string; status: 'sent' | 'failed' }[];
     lanBroadcastSent?: boolean;
+    meshBroadcastSent?: boolean;
     error?: string;
   };
   JourneySetup: undefined;

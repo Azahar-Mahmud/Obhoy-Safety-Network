@@ -1,16 +1,23 @@
 import React from 'react';
 import { View, Text, FlatList, TouchableOpacity, StyleSheet, Linking } from 'react-native';
 import { useLanAlerts } from '../context/LanAlertContext';
+import { useMesh } from '../context/MeshContext';
 
 export default function NearbyAlertsScreen() {
-  const { alerts } = useLanAlerts();
+  const { alerts: lanAlerts } = useLanAlerts();
+  const { meshAlerts } = useMesh();
+
+  // Combine LAN (WiFi) and Mesh (Bluetooth) alerts, sorted by newest first
+  const alerts: any[] = [...lanAlerts, ...meshAlerts].sort(
+    (a, b) => new Date(b.receivedAt).getTime() - new Date(a.receivedAt).getTime()
+  );
 
   return (
     <View style={styles.container}>
       <FlatList
         data={alerts}
-        keyExtractor={(item, i) => item.sentAt + i}
-        renderItem={({ item }) => (
+        keyExtractor={(item: any, i) => String(item.id || item.sentAt || i)}
+        renderItem={({ item }: { item: any }) => (
           <View style={styles.card}>
             <Text style={styles.message}>{item.message}</Text>
             <Text style={styles.time}>{new Date(item.receivedAt).toLocaleTimeString()}</Text>

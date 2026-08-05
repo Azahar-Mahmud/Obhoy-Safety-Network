@@ -54,7 +54,6 @@ export default function HomeScreen({ navigation }: Props) {
       <TouchableOpacity style={styles.button} onPress={() => navigation.navigate('Map')}>
         <Text style={styles.buttonText}>Unsafe Zone Map</Text>
       </TouchableOpacity>
-      {/* NEW: Nearby Alerts Button for Layer 3 */}
       <TouchableOpacity style={styles.button} onPress={() => navigation.navigate('NearbyAlerts')}>
         <Text style={styles.buttonText}>Nearby Alerts</Text>
       </TouchableOpacity>

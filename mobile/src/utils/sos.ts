@@ -1,3 +1,4 @@
+import { sendMeshAlert } from './meshAlert';
 import * as Location from 'expo-location';
 import * as SmsManager from 'expo-sms-manager';
 import { PermissionsAndroid, Platform } from 'react-native';
@@ -19,9 +20,10 @@ type Contact = { name: string; phone: string };
 type NotifyResult = { name: string; phone: string; status: 'sent' | 'failed' };
 
 export type SosResult = {
-  channel: 'backend' | 'native' | 'lan';
+  channel: 'backend' | 'native' | 'lan' | 'mesh';
   contactsNotified: NotifyResult[];
   lanBroadcastSent?: boolean;
+  meshBroadcastSent?: boolean;
 };
 
 export async function triggerSos(contacts: Contact[]): Promise<SosResult> {
@@ -30,10 +32,21 @@ export async function triggerSos(contacts: Contact[]): Promise<SosResult> {
     throw new Error('Location permission is required to send SOS.');
   }
 
-  const position = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.High });
-  const lat = position.coords.latitude;
-  const lng = position.coords.longitude;
-  const accuracy = position.coords.accuracy ?? 0;
+  let lat: number, lng: number, accuracy: number;
+  try {
+    const position = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.High });
+    lat = position.coords.latitude;
+    lng = position.coords.longitude;
+    accuracy = position.coords.accuracy ?? 0;
+  } catch {
+    const lastKnown = await Location.getLastKnownPositionAsync({ maxAge: 86400000 });
+    if (!lastKnown) {
+      throw new Error('Current location is unavailable. Make sure location services are enabled.');
+    }
+    lat = lastKnown.coords.latitude;
+    lng = lastKnown.coords.longitude;
+    accuracy = lastKnown.coords.accuracy ?? 0;
+  }
 
   // Layer 1: Server / Internet API
   try {
@@ -55,11 +68,11 @@ export async function triggerSos(contacts: Contact[]): Promise<SosResult> {
           const result = await SmsManager.sendSms(contact.phone, message, {
             checkSignal: true, // makes the package check radio availability before attempting
           });
-          console.log('SMS result for', contact.phone, JSON.stringify(result));
+          const ok = result?.status === 'sent' || result?.status === 'sent_no_confirmation';
           results.push({
             name: contact.name,
             phone: contact.phone,
-            status: result?.sent === 'sent' ? 'sent' : 'failed',
+            status: ok ? 'sent' : 'failed',
           });
         } catch {
           results.push({ name: contact.name, phone: contact.phone, status: 'failed' });
@@ -74,6 +87,12 @@ export async function triggerSos(contacts: Contact[]): Promise<SosResult> {
 
     // Layer 3: Local WiFi/LAN UDP Broadcast Fallback
     const lanBroadcastSent = await sendLanAlert(lat, lng, 'Obhoy Alert: I need help nearby.');
-    return { channel: 'lan', contactsNotified: results, lanBroadcastSent };
+    if (lanBroadcastSent) {
+      return { channel: 'lan', contactsNotified: results, lanBroadcastSent };
+    }
+
+    // Layer 4: Bluetooth Mesh Relay — reached only if Layer 3's broadcast had nobody to reach either.
+    const meshBroadcastSent = await sendMeshAlert(lat, lng, 'Obhoy Alert: I need help nearby.');
+    return { channel: 'mesh', contactsNotified: results, lanBroadcastSent: false, meshBroadcastSent };
   }
 }

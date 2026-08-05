@@ -9,3 +9,7 @@ export function acquireMulticastLock(): void {
 export function releaseMulticastLock(): void {
   LanMulticastModule.releaseMulticastLock();
 }
+
+export function sendUdpBroadcast(port: number, message: string): string {
+  return LanMulticastModule.sendUdpBroadcast(port, message);
+}

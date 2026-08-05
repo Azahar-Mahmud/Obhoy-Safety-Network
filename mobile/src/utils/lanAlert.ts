@@ -1,9 +1,8 @@
 import dgram from 'react-native-udp';
 import NetInfo from '@react-native-community/netinfo';
-import { acquireMulticastLock, releaseMulticastLock } from '../../modules/lan-multicast/src';
+import { acquireMulticastLock, releaseMulticastLock, sendUdpBroadcast } from '../../modules/lan-multicast/src';
 
 export const LAN_ALERT_PORT = 41999;
-const BROADCAST_ADDRESS = '255.255.255.255';
 const PACKET_TYPE = 'obhoy_sos';
 
 export type LanAlertPayload = {
@@ -15,81 +14,38 @@ export type LanAlertPayload = {
 };
 
 export async function sendLanAlert(lat: number, lng: number, message: string): Promise<boolean> {
-  const netState = await NetInfo.fetch();
-  console.log('NetInfo state:', JSON.stringify(netState));
+  const netState: any = await NetInfo.fetch();
   if (netState.type !== 'wifi') {
     return false;
   }
 
-  return new Promise((resolve) => {
-    let socket: any;
-    try {
-      acquireMulticastLock();
-      socket = dgram.createSocket({ type: 'udp4' });
-    } catch {
-      resolve(false);
-      return;
+  const payload: LanAlertPayload = {
+    type: PACKET_TYPE,
+    message,
+    lat,
+    lng,
+    sentAt: new Date().toISOString(),
+  };
+  const data = JSON.stringify(payload);
+
+  try {
+    acquireMulticastLock();
+    let lastResult = '';
+    for (let i = 0; i < 3; i++) {
+      lastResult = sendUdpBroadcast(LAN_ALERT_PORT, data);
+      if (lastResult === 'sent') break;
+      await new Promise((r) => setTimeout(r, 300));
     }
-    const payload: LanAlertPayload = {
-      type: PACKET_TYPE,
-      message,
-      lat,
-      lng,
-      sentAt: new Date().toISOString(),
-    };
-    const data = JSON.stringify(payload);
-    let sentOk = false;
-    let attempts = 0;
-    let done = false;
-
-    const finish = () => {
-      if (done) return;
-      done = true;
-      try {
-        socket.close();
-      } catch {}
-      releaseMulticastLock();
-      resolve(sentOk);
-    };
-
-    // Safety timeout: Ensure Promise ALWAYS resolves within 3 seconds
-    const timeout = setTimeout(() => {
-      finish();
-    }, 3000);
-
-    socket.on('error', () => {
-      clearTimeout(timeout);
-      finish();
-    });
-
-    const attempt = () => {
-      socket.send(data, undefined, undefined, LAN_ALERT_PORT, BROADCAST_ADDRESS, (err: any) => {
-        if (!err) sentOk = true;
-        attempts += 1;
-        if (attempts < 3) {
-          setTimeout(attempt, 300);
-        } else {
-          clearTimeout(timeout);
-          finish();
-        }
-      });
-    };
-
-    socket.once('listening', () => {
-      try {
-        socket.setBroadcast(true);
-      } catch {}
-      attempt();
-    });
-
-    try {
-      socket.bind(0);
-    } catch {
-      clearTimeout(timeout);
-      finish();
-    }
-  });
+    releaseMulticastLock();
+    return lastResult === 'sent';
+  } catch {
+    releaseMulticastLock();
+    return false;
+  }
 }
+
+// Listening still goes through react-native-udp/dgram below — only the send path
+// was replaced with the native module. bind()/on('message') here has always worked.
 
 let listenSocket: any = null;
 

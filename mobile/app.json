@@ -26,7 +26,12 @@
         "READ_SMS",
         "RECEIVE_SMS",
         "READ_PHONE_STATE",
-        "READ_PHONE_NUMBERS"
+        "READ_PHONE_NUMBERS",
+        "BLUETOOTH_SCAN",
+        "BLUETOOTH_ADVERTISE",
+        "BLUETOOTH_CONNECT",
+        "NEARBY_WIFI_DEVICES",
+        "ACCESS_FINE_LOCATION"
       ]
     },
     "web": {
@@ -34,7 +39,8 @@
     },
     "plugins": [
       "expo-secure-store",
-      "./plugins/withDiscreetMode.js"
+      "./plugins/withDiscreetMode.js",
+      "expo-nearby-connections"
     ]
   }
 }

@@ -5,7 +5,7 @@ import { RootStackParamList } from '../navigation/AppNavigator';
 type Props = NativeStackScreenProps<RootStackParamList, 'SosConfirmation'>;
 
 export default function SosConfirmationScreen({ route, navigation }: Props) {
-  const { channel, contactsNotified, lanBroadcastSent, error } = route.params;
+  const { channel, contactsNotified, lanBroadcastSent, meshBroadcastSent, error } = route.params;
 
   return (
     <View style={styles.container}>
@@ -16,6 +16,9 @@ export default function SosConfirmationScreen({ route, navigation }: Props) {
         {channel === 'lan' && (lanBroadcastSent
           ? "Couldn't reach your contacts by SMS. Broadcast to nearby Obhoy users instead — delivery can't be confirmed, this only reaches someone with the app open close by."
           : "Couldn't reach your contacts by SMS, and no local network was available either. Try the Emergency Directory to call for help directly.")}
+        {channel === 'mesh' && (meshBroadcastSent
+          ? "Couldn't reach your contacts by SMS or local WiFi. Relayed through nearby Obhoy devices instead — delivery can't be confirmed, this only reaches someone with the app open close by."
+          : "Couldn't reach your contacts, and no nearby Obhoy devices were connected to relay through. Try the Emergency Directory to call for help directly.")}
         {channel === 'failed' && (error || 'Please try again.')}
       </Text>
       <FlatList
