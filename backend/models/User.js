@@ -8,6 +8,11 @@ const userSchema = new mongoose.Schema({
   otpExpiresAt: { type: Date, default: null },
   otpLastSentAt: { type: Date, default: null },
   failedPinAttempts: { type: Number, default: 0 },
+  medicalCard: {
+    bloodType: { type: String, default: null },
+    allergies: { type: String, default: null },
+    notes: { type: String, default: null },
+  },
 }, { timestamps: true });
 
 module.exports = mongoose.model('User', userSchema);

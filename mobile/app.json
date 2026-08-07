@@ -31,7 +31,8 @@
         "BLUETOOTH_ADVERTISE",
         "BLUETOOTH_CONNECT",
         "NEARBY_WIFI_DEVICES",
-        "ACCESS_FINE_LOCATION"
+        "ACCESS_FINE_LOCATION",
+        "VIBRATE"
       ]
     },
     "web": {

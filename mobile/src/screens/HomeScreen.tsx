@@ -1,4 +1,6 @@
-import { useState, useCallback } from 'react';
+import * as Location from 'expo-location';
+import { ensureSmsPermission } from '../utils/sos';
+import { useEffect, useState, useCallback } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
@@ -7,11 +9,18 @@ import { RootStackParamList } from '../navigation/AppNavigator';
 import { useAuth } from '../context/AuthContext';
 import { apiRequest } from '../api/client';
 
+// NEW IMPORTS FOR SILENT MODE
+import { useSilentMode } from '../context/SilentModeContext';
+import { runSilentSos } from '../utils/silentSos';
+
 type Props = NativeStackScreenProps<RootStackParamList, 'Home'>;
 
 export default function HomeScreen({ navigation }: Props) {
   const { signOut } = useAuth();
   const [activeJourney, setActiveJourney] = useState<any>(null);
+  
+  // 1. Grab the silent mode status from the Context
+  const { silentModeEnabled } = useSilentMode();
 
   useFocusEffect(
     useCallback(() => {
@@ -24,12 +33,41 @@ export default function HomeScreen({ navigation }: Props) {
     }, [])
   );
 
+  // Prime permissions immediately so system dialogs don't pop up during a silent emergency.
+  useEffect(() => {
+    Location.requestForegroundPermissionsAsync();
+    ensureSmsPermission();
+  }, []);
+
+  // 2. The updated logic for when the button is tapped quickly
+  const handleSosPress = () => {
+    if (!silentModeEnabled) {
+      navigation.navigate('SosCountdown');
+    }
+    // If Silent Mode is on, doing nothing here prevents accidental loud alarms.
+  };
+
+  // 3. The logic for when the button is held for 2 seconds
+  const handleSosLongPress = () => {
+    if (silentModeEnabled) {
+      runSilentSos(); // Not awaited — fires in the background silently
+    }
+  };
+
   return (
     <View style={styles.container}>
       <Text style={styles.title}>Obhoy</Text>
-      <TouchableOpacity style={styles.sosButton} onPress={() => navigation.navigate('SosCountdown')}>
+      
+      {/* 4. The updated SOS button with onLongPress added */}
+      <TouchableOpacity 
+        style={styles.sosButton} 
+        onPress={handleSosPress}
+        onLongPress={handleSosLongPress}
+        delayLongPress={2000}
+      >
         <Text style={styles.sosText}>SOS</Text>
       </TouchableOpacity>
+
       {activeJourney ? (
         <TouchableOpacity
           style={styles.journeyButton}

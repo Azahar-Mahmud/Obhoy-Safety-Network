@@ -5,7 +5,7 @@ import { PermissionsAndroid, Platform } from 'react-native';
 import { apiRequest } from '../api/client';
 import { sendLanAlert } from './lanAlert';
 
-async function ensureSmsPermission(): Promise<boolean> {
+export async function ensureSmsPermission(): Promise<boolean> {
   if (Platform.OS !== 'android') return true;
   const granted = await PermissionsAndroid.requestMultiple([
     PermissionsAndroid.PERMISSIONS.SEND_SMS,

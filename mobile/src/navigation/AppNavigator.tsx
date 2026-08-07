@@ -1,4 +1,5 @@
 import NearbyAlertsScreen from '../screens/NearbyAlertsScreen';
+import LastAlertStatusScreen from '../screens/LastAlertStatusScreen';
 import React from 'react';
 import { View, ActivityIndicator } from 'react-native';
 import { NavigationContainer } from '@react-navigation/native';
@@ -33,6 +34,11 @@ import ReportSuccessScreen from '../screens/ReportSuccessScreen';
 import CalculatorScreen from '../screens/CalculatorScreen';
 import SettingsScreen from '../screens/SettingsScreen';
 
+// Medical Card Screen
+import MedicalCardEditScreen from '../screens/MedicalCardEditScreen';
+import { useFallDetection } from '../context/FallDetectionContext';
+import FallDetectedScreen from '../screens/FallDetectedScreen';
+import MedicalCardScreen from '../screens/MedicalCardScreen';
 export type RootStackParamList = {
   PhoneEntry: undefined;
   Otp: { phone: string; otpWindowSeconds: number };
@@ -42,7 +48,7 @@ export type RootStackParamList = {
   ContactsList: undefined;
   AddContact: undefined;
   SosCountdown: undefined;
-SosConfirmation: {
+  SosConfirmation: {
     channel: 'backend' | 'native' | 'lan' | 'mesh' | 'failed';
     contactsNotified: { name: string; phone: string; status: 'sent' | 'failed' }[];
     lanBroadcastSent?: boolean;
@@ -60,6 +66,8 @@ SosConfirmation: {
   Calculator: undefined;
   Settings: undefined;
   NearbyAlerts: undefined;
+  MedicalCardEdit: undefined;
+  LastAlertStatus: undefined;
 };
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
@@ -67,6 +75,9 @@ const Stack = createNativeStackNavigator<RootStackParamList>();
 export default function AppNavigator() {
   const { token, isLoading: authLoading } = useAuth();
   const { discreetModeEnabled, isUnlocked, isLoading: discreetLoading } = useDiscreetMode();
+  
+  // 1. Get the current Fall Detection state
+  const { phase, resolveCountdown, escalateToCard, dismissCard } = useFallDetection();
 
   if (authLoading || discreetLoading) {
     return (
@@ -77,6 +88,18 @@ export default function AppNavigator() {
   }
 
   const showDisguise = discreetModeEnabled && !isUnlocked;
+
+  // 2. Intercept navigation for emergencies!
+  // (We check !showDisguise because we don't want to blow the calculator cover)
+  if (!showDisguise && phase === 'countdown') {
+    return <FallDetectedScreen onResolved={resolveCountdown} onEscalate={escalateToCard} />;
+  }
+  
+  if (!showDisguise && phase === 'card') {
+    return <MedicalCardScreen />;
+    // Note: dismissCard isn't wired to a button on the card deliberately — a paramedic
+    // shouldn't accidentally close it. The user has to close/restart the app to dismiss it.
+  }
 
   return (
     <NavigationContainer>
@@ -107,6 +130,8 @@ export default function AppNavigator() {
             <Stack.Screen name="ReportSuccess" component={ReportSuccessScreen} options={{ headerShown: false }} />
             <Stack.Screen name="Settings" component={SettingsScreen} options={{ title: 'Settings' }} />
             <Stack.Screen name="NearbyAlerts" component={NearbyAlertsScreen} options={{ title: 'Nearby Alerts' }} />
+            <Stack.Screen name="MedicalCardEdit" component={MedicalCardEditScreen} options={{ title: 'Medical Card' }} />
+            <Stack.Screen name="LastAlertStatus" component={LastAlertStatusScreen} options={{ title: 'Last Alert' }} />
           </>
         )}
       </Stack.Navigator>

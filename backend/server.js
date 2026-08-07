@@ -24,6 +24,7 @@ app.get('/', (req, res) => {
 app.use('/auth', authRoutes);
 app.use('/contacts', contactsRoutes);
 app.use('/sos', sosRoutes);
+app.use('/medical-card', require('./routes/medicalCard'));
 app.use('/track', trackRoutes);
 app.use('/journey', journeyRoutes);
 app.use('/internal', internalRoutes);
