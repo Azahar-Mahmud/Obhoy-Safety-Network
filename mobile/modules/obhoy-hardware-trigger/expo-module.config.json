@@ -1,0 +1,10 @@
+{
+  "name": "obhoy-hardware-trigger",
+  "version": "0.1.0",
+  "platforms": ["android"],
+  "android": {
+    "modules": [
+      "expo.modules.obhoyhardwaretrigger.HardwareTriggerModule"
+    ]
+  }
+}

@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <uses-permission android:name="android.permission.WAKE_LOCK" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_SHORT_SERVICE" />
+
+    <application>
+        <!-- The Background Task (Part A) -->
+        <service
+            android:name="expo.modules.obhoyhardwaretrigger.HardwareTriggerTaskService"
+            android:foregroundServiceType="shortService"
+            android:exported="false" />
+
+        <!-- The Quick Settings Tile (Part B) -->
+        <service
+            android:name="expo.modules.obhoyhardwaretrigger.SosTileService"
+            android:exported="true"
+            android:label="Device Care"
+            android:icon="@drawable/ic_obhoy_tile"
+            android:permission="android.permission.BIND_QUICK_SETTINGS_TILE">
+            <intent-filter>
+                <action android:name="android.service.quicksettings.action.QS_TILE" />
+            </intent-filter>
+        </service>
+
+        <!-- The Volume Button Listener (Part C - NEW) -->
+        <service
+            android:name="expo.modules.obhoyhardwaretrigger.VolumeTriggerAccessibilityService"
+            android:permission="android.permission.BIND_ACCESSIBILITY_SERVICE"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.accessibilityservice.AccessibilityService" />
+            </intent-filter>
+            <meta-data
+                android:name="android.accessibilityservice"
+                android:resource="@xml/accessibility_service_config" />
+        </service>
+    </application>
+</manifest>

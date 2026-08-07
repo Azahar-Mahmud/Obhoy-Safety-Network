@@ -1,3 +1,4 @@
+import { simulateTrigger } from '../../modules/obhoy-hardware-trigger';
 import React, { useState, useEffect } from 'react';
 import { View, Text, Switch, StyleSheet, Alert, TouchableOpacity, ScrollView } from 'react-native';
 import { useDiscreetMode } from '../context/DiscreetModeContext';

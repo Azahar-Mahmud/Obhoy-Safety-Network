@@ -1,0 +1,4 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="accessibility_service_description">Lets Obhoy detect the volume-button emergency sequence while the screen is off.</string>
+</resources>
