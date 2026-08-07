@@ -3,7 +3,7 @@ const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const rateLimit = require('express-rate-limit');
 const User = require('../models/User');
-const { sendSms } = require('../utils/textbee');
+const { sendSms } = require('../utils/smsGateway');
 const { normalizeToE164 } = require('../utils/phone');
 
 const router = express.Router();
@@ -50,7 +50,7 @@ router.post('/signup/start', otpRateLimiter, async (req, res) => {
     try {
       await sendSms(phone, `Obhoy verification code: ${otp}`);
     } catch (err) {
-      console.error('TextBee send failed:', err.message);
+      console.error('SMS send failed:', err.message);
       // Not a fatal error — the mobile client's countdown falls through to PIN-only.
     }
 

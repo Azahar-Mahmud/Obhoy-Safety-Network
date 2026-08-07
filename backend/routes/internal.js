@@ -2,7 +2,7 @@ const express = require('express');
 const JourneySession = require('../models/JourneySession');
 const TrustedContact = require('../models/TrustedContact');
 const User = require('../models/User');
-const { sendSms } = require('../utils/textbee');
+const { sendSms } = require('../utils/smsGateway');
 
 const router = express.Router();
 

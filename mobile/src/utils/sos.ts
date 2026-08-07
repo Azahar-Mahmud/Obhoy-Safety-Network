@@ -1,3 +1,4 @@
+import { buildStatusLine, getStatusPayload } from './statusLine';
 import { sendMeshAlert } from './meshAlert';
 import * as Location from 'expo-location';
 import * as SmsManager from 'expo-sms-manager';
@@ -50,15 +51,21 @@ export async function triggerSos(contacts: Contact[]): Promise<SosResult> {
 
   // Layer 1: Server / Internet API
   try {
+    // NEW: Get the payload including battery and last active time
+    const statusPayload = await getStatusPayload();
     const data = await apiRequest('/sos/trigger', {
       method: 'POST',
-      body: JSON.stringify({ lat, lng, accuracy }),
+      body: JSON.stringify({ lat, lng, accuracy, ...statusPayload }), // UPDATED
     });
     return { channel: 'backend', contactsNotified: data.contactsNotified };
   } catch {
     // Layer 2: Native Cellular SMS Fallback
     const mapsLink = `https://www.google.com/maps?q=${lat},${lng}`;
-    const message = `Obhoy Alert: I need help. My location: ${mapsLink}`;
+    
+    // NEW: Build the text suffix to append to messages
+    const statusLine = await buildStatusLine();
+    const message = `Obhoy Alert: I need help. My location: ${mapsLink}${statusLine}`; // UPDATED
+    
     const results: NotifyResult[] = [];
     const smsAllowed = await ensureSmsPermission();
 
@@ -66,7 +73,7 @@ export async function triggerSos(contacts: Contact[]): Promise<SosResult> {
       for (const contact of contacts) {
         try {
           const result = await SmsManager.sendSms(contact.phone, message, {
-            checkSignal: true, // makes the package check radio availability before attempting
+            checkSignal: true, 
           });
           const ok = result?.status === 'sent' || result?.status === 'sent_no_confirmation';
           results.push({
@@ -86,13 +93,13 @@ export async function triggerSos(contacts: Contact[]): Promise<SosResult> {
     }
 
     // Layer 3: Local WiFi/LAN UDP Broadcast Fallback
-    const lanBroadcastSent = await sendLanAlert(lat, lng, 'Obhoy Alert: I need help nearby.');
+    const lanBroadcastSent = await sendLanAlert(lat, lng, `Obhoy Alert: I need help nearby.${statusLine}`); // UPDATED
     if (lanBroadcastSent) {
       return { channel: 'lan', contactsNotified: results, lanBroadcastSent };
     }
 
-    // Layer 4: Bluetooth Mesh Relay — reached only if Layer 3's broadcast had nobody to reach either.
-    const meshBroadcastSent = await sendMeshAlert(lat, lng, 'Obhoy Alert: I need help nearby.');
+    // Layer 4: Bluetooth Mesh Relay
+    const meshBroadcastSent = await sendMeshAlert(lat, lng, `Obhoy Alert: I need help nearby.${statusLine}`); // UPDATED
     return { channel: 'mesh', contactsNotified: results, lanBroadcastSent: false, meshBroadcastSent };
   }
 }
