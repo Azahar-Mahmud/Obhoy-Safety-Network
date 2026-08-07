@@ -32,7 +32,8 @@
         "BLUETOOTH_CONNECT",
         "NEARBY_WIFI_DEVICES",
         "ACCESS_FINE_LOCATION",
-        "VIBRATE"
+        "VIBRATE",
+        "REQUEST_IGNORE_BATTERY_OPTIMIZATIONS"
       ]
     },
     "web": {
@@ -41,7 +42,8 @@
     "plugins": [
       "expo-secure-store",
       "./plugins/withDiscreetMode.js",
-      "expo-nearby-connections"
+      "expo-nearby-connections",
+      "expo-background-task"
     ]
   }
 }

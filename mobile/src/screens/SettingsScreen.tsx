@@ -1,4 +1,3 @@
-import { simulateTrigger } from '../../modules/obhoy-hardware-trigger';
 import React, { useState, useEffect } from 'react';
 import { View, Text, Switch, StyleSheet, Alert, TouchableOpacity, ScrollView } from 'react-native';
 import { useDiscreetMode } from '../context/DiscreetModeContext';
@@ -7,16 +6,14 @@ import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../navigation/AppNavigator';
 import * as SecureStore from 'expo-secure-store';
 import SilentModeToggle from '../components/SilentModeToggle';
+import BatteryAlertSettings from '../components/BatteryAlertSettings'; // <--- NEW IMPORT
 
 const FALL_DETECTION_KEY = 'obhoy_fall_detection_enabled';
 const FALL_SENSITIVITY_KEY = 'obhoy_fall_sensitivity';
 
 export default function SettingsScreen() {
-  // Discreet Mode state
   const { discreetModeEnabled, enable, disable } = useDiscreetMode();
   const [busy, setBusy] = useState(false);
-  
-  // Fall Detection state
   const [fallEnabled, setFallEnabled] = useState(false);
   const [sensitivity, setSensitivity] = useState<'low' | 'medium' | 'high'>('medium');
 
@@ -76,9 +73,13 @@ export default function SettingsScreen() {
 
       <View style={styles.divider} />
 
-      {/* NEW: Silent SOS Mode */}
+      {/* Silent SOS Mode */}
       <SilentModeToggle />
 
+      <View style={styles.divider} />
+
+      {/* NEW: Battery Auto-Alert */}
+      <BatteryAlertSettings />
       <View style={styles.divider} />
 
       {/* Fall Detection */}
@@ -108,7 +109,7 @@ export default function SettingsScreen() {
 
       <View style={styles.divider} />
 
-      {/* NEW: Last Alert Status Link */}
+      {/* Last Alert Status Link */}
       <TouchableOpacity 
         style={styles.settingRow} 
         onPress={() => navigation.navigate('LastAlertStatus')}
