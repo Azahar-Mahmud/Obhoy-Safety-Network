@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { View, Text, TextInput, TouchableOpacity, StyleSheet } from 'react-native';
+import { View, Text, TextInput, TouchableOpacity, StyleSheet, Switch } from 'react-native';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import * as Location from 'expo-location';
 import { RootStackParamList } from '../navigation/AppNavigator';
@@ -7,10 +7,16 @@ import { apiRequest } from '../api/client';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'JourneySetup'>;
 const INTERVALS = [1, 15, 30, 60];
+const RADIUS_OPTIONS = [200, 500, 1000, 2000]; // meters
 
 export default function JourneySetupScreen({ navigation }: Props) {
   const [destinationLabel, setDestinationLabel] = useState('');
   const [interval, setInterval_] = useState(30);
+  
+  // NEW: State for geofence feature
+  const [geofenceEnabled, setGeofenceEnabled] = useState(false);
+  const [radius, setRadius] = useState(500);
+  
   const [error, setError] = useState('');
 
   const handleStart = async () => {
@@ -19,6 +25,7 @@ export default function JourneySetupScreen({ navigation }: Props) {
       const { status } = await Location.requestForegroundPermissionsAsync();
       if (status !== 'granted') throw new Error('Location permission is required.');
       const { coords } = await Location.getCurrentPositionAsync({});
+      
       const data = await apiRequest('/journey/start', {
         method: 'POST',
         body: JSON.stringify({
@@ -27,6 +34,9 @@ export default function JourneySetupScreen({ navigation }: Props) {
           lat: coords.latitude,
           lng: coords.longitude,
           accuracy: coords.accuracy,
+          // NEW: Sending geofence settings to the backend
+          geofenceEnabled,
+          geofenceRadiusMeters: geofenceEnabled ? radius : undefined,
         }),
       });
       navigation.replace('ActiveJourney', { journeyId: data.journeyId, checkinIntervalMinutes: interval });
@@ -39,6 +49,7 @@ export default function JourneySetupScreen({ navigation }: Props) {
     <View style={styles.container}>
       <Text style={styles.title}>Where are you headed?</Text>
       <TextInput style={styles.input} placeholder="e.g. Home" value={destinationLabel} onChangeText={setDestinationLabel} />
+      
       <Text style={styles.label}>Check in every</Text>
       <View style={styles.intervalRow}>
         {INTERVALS.map((mins) => (
@@ -51,7 +62,35 @@ export default function JourneySetupScreen({ navigation }: Props) {
           </TouchableOpacity>
         ))}
       </View>
+
+      {/* NEW: Safe Zone toggle and radius picker */}
+      <View style={styles.row}>
+        <Text style={styles.label}>Alert if I leave a safe zone</Text>
+        <Switch 
+          value={geofenceEnabled} 
+          onValueChange={setGeofenceEnabled} 
+          trackColor={{ false: '#D1D5DB', true: '#6B21A8' }} 
+        />
+      </View>
+      
+      {geofenceEnabled && (
+        <View style={styles.intervalRow}>
+          {RADIUS_OPTIONS.map((meters) => (
+            <TouchableOpacity
+              key={meters}
+              style={[styles.intervalButton, radius === meters && styles.intervalButtonActive]}
+              onPress={() => setRadius(meters)}
+            >
+              <Text style={[styles.intervalText, radius === meters && styles.intervalTextActive]}>
+                {meters >= 1000 ? `${meters / 1000}km` : `${meters}m`}
+              </Text>
+            </TouchableOpacity>
+          ))}
+        </View>
+      )}
+
       {error ? <Text style={styles.error}>{error}</Text> : null}
+      
       <TouchableOpacity style={styles.button} onPress={handleStart}>
         <Text style={styles.buttonText}>Start Journey</Text>
       </TouchableOpacity>
@@ -69,6 +108,8 @@ const styles = StyleSheet.create({
   intervalButtonActive: { backgroundColor: '#6B21A8' },
   intervalText: { color: '#6B21A8', fontWeight: 'bold' },
   intervalTextActive: { color: '#fff' },
+  // NEW: Row style for the toggle switch
+  row: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 },
   button: { backgroundColor: '#D97706', borderRadius: 8, padding: 16, alignItems: 'center' },
   buttonText: { color: '#fff', fontSize: 18, fontWeight: 'bold' },
   error: { color: '#DC2626', marginBottom: 12 },

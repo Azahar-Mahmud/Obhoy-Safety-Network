@@ -1,8 +1,8 @@
 import { useState, useEffect } from 'react';
-import { MapContainer, TileLayer, Marker, Popup } from 'react-leaflet';
+import { MapContainer, TileLayer, Marker, Popup, Circle } from 'react-leaflet'; // <-- ADDED Circle
 import 'leaflet/dist/leaflet.css';
 
-const API_BASE_URL = 'https://obhoy-safety-network.onrender.com'; // ← Your Render backend URL
+const API_BASE_URL = 'https://obhoy-safety-network.onrender.com';
 
 function getTokenFromUrl() {
   const parts = window.location.pathname.split('/').filter(Boolean);
@@ -32,12 +32,17 @@ export default function App() {
   if (error) return <div style={styles.center}>{error}</div>;
   if (!data) return <div style={styles.center}>Loading...</div>;
 
-  const { location, status, updatedAt, kind, destinationLabel } = data;
+  const { location, status, updatedAt, kind, destinationLabel, geofence } = data; // <-- ADDED geofence
 
+  // NEW: Updated banner logic for geofence
   const bannerText = kind === 'sos'
     ? (status === 'active' ? `🔴 SOS Active — last updated ${new Date(updatedAt).toLocaleTimeString()}` : '✅ Resolved')
     : status === 'active'
-      ? `🟠 On the way to ${destinationLabel || 'destination'} — last updated ${new Date(updatedAt).toLocaleTimeString()}`
+      ? (geofence?.alerted
+          ? `🔴 Outside safe zone — last updated ${new Date(updatedAt).toLocaleTimeString()}`
+          : geofence
+            ? `🟣 Inside safe zone — last updated ${new Date(updatedAt).toLocaleTimeString()}`
+            : `🟠 On the way to ${destinationLabel || 'destination'} — last updated ${new Date(updatedAt).toLocaleTimeString()}`)
       : status === 'arrived'
         ? '✅ Arrived safely'
         : '🔴 Missed a check-in — contacts alerted';
@@ -48,6 +53,19 @@ export default function App() {
       {location ? (
         <MapContainer center={[location.lat, location.lng]} zoom={16} style={styles.map}>
           <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" attribution="&copy; OpenStreetMap contributors" />
+          
+          {/* NEW: Draw the geofence boundary circle if it exists */}
+          {geofence && (
+            <Circle 
+              center={[geofence.center.lat, geofence.center.lng]} 
+              radius={geofence.radiusMeters} 
+              pathOptions={{
+                color: geofence.alerted ? '#DC2626' : '#6B21A8', // Turns red if outside
+                fillOpacity: 0.08
+              }}
+            />
+          )}
+          
           <Marker position={[location.lat, location.lng]}>
             <Popup>Last known location</Popup>
           </Marker>
