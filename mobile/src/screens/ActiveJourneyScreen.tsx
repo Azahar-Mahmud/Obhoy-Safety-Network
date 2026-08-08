@@ -109,7 +109,27 @@ export default function ActiveJourneyScreen({ route, navigation }: Props) {
       <TouchableOpacity style={styles.checkinButton} onPress={handleCheckin}>
         <Text style={styles.buttonText}>I'm OK, Keep Going</Text>
       </TouchableOpacity>
-      
+      {/* TEMP BUTTON FOR TESTING GEOFENCE */}
+      <TouchableOpacity 
+        style={{ backgroundColor: 'red', padding: 12, borderRadius: 8, width: '100%', marginBottom: 12, alignItems: 'center' }} 
+        onPress={async () => {
+          try {
+            const { coords } = await Location.getCurrentPositionAsync({});
+            // Adding 0.003 to latitude moves you approximately 333 meters North
+            const spoofedLat = coords.latitude + 0.003; 
+            
+            const result = await apiRequest(`/journey/${journeyId}/location`, {
+              method: 'PATCH',
+              body: JSON.stringify({ lat: spoofedLat, lng: coords.longitude, accuracy: coords.accuracy }),
+            });
+            setInsideGeofence(result.insideGeofence);
+          } catch (err) {
+            console.error(err);
+          }
+        }}
+      >
+        <Text style={{ color: 'white', fontWeight: 'bold' }}>TEST: Jump 300m Away</Text>
+      </TouchableOpacity>
       <TouchableOpacity style={styles.cancelButton} onPress={handleCancel}>
         <Text style={styles.cancelText}>Cancel Journey</Text>
       </TouchableOpacity>

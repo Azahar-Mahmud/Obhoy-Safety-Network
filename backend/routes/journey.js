@@ -67,13 +67,12 @@ router.patch('/:id/location', async (req, res) => {
       const trackUrl = `${process.env.WEB_TRACKER_URL}/${journey.trackingToken}`;
       const message = `Obhoy Alert: ${user.phone} left their safe zone. Live location: ${trackUrl}`;
       
-      for (const contact of contacts) {
-        try {
-          await sendSms(contact.phone, message);
-        } catch (err) {
-          console.error('Geofence alert SMS failed for', contact.phone, err.message);
-        }
-      }
+      // Send SMS in the background (fire-and-forget) so the app doesn't timeout
+      contacts.forEach(contact => {
+        sendSms(contact.phone, message).catch(err => 
+          console.error('Geofence alert SMS failed for', contact.phone, err.message)
+        );
+      });
     } else if (insideGeofence && journey.geofenceAlerted && distance <= journey.geofenceRadiusMeters - resetMarginMeters) {
       // User is comfortably back inside the safe zone, reset the alert flag
       journey.geofenceAlerted = false;
