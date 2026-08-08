@@ -24,10 +24,7 @@ export default function ActiveJourneyScreen({ route, navigation }: Props) {
   const { journeyId, checkinIntervalMinutes } = route.params;
   const { discreetModeEnabled } = useDiscreetMode();
   const [lastCheckin, setLastCheckin] = useState(new Date());
-  
-  // NEW: State to track if the user is inside or outside the geofence
   const [insideGeofence, setInsideGeofence] = useState<boolean | null>(null);
-  
   const notificationIdRef = useRef<string | null>(null);
 
   const scheduleReminder = useCallback(async (minutes: number) => {
@@ -55,13 +52,10 @@ export default function ActiveJourneyScreen({ route, navigation }: Props) {
     const locInterval = setInterval(async () => {
       try {
         const { coords } = await Location.getCurrentPositionAsync({});
-        // NEW: Capture the response from the server to check geofence status
         const result = await apiRequest(`/journey/${journeyId}/location`, {
           method: 'PATCH',
           body: JSON.stringify({ lat: coords.latitude, lng: coords.longitude, accuracy: coords.accuracy }),
         });
-        
-        // Update state with the backend's determination (true, false, or null if disabled)
         setInsideGeofence(result.insideGeofence);
       } catch {}
     }, LOCATION_UPDATE_MS);
@@ -90,15 +84,12 @@ export default function ActiveJourneyScreen({ route, navigation }: Props) {
 
   return (
     <View style={styles.container}>
-      {/* NEW: Geofence Warning Banner */}
       {insideGeofence === false && (
         <View style={styles.geofenceBanner}>
-          <Text style={styles.geofenceBannerText}>
-            You've left your safe zone — your contacts have been notified.
-          </Text>
+          <Text style={styles.geofenceBannerText}>You've left your safe zone — your contacts have been notified.</Text>
         </View>
       )}
-
+      
       <Text style={styles.title}>Journey Active</Text>
       <Text style={styles.subtitle}>Last checked in: {lastCheckin.toLocaleTimeString()}</Text>
       
@@ -109,27 +100,7 @@ export default function ActiveJourneyScreen({ route, navigation }: Props) {
       <TouchableOpacity style={styles.checkinButton} onPress={handleCheckin}>
         <Text style={styles.buttonText}>I'm OK, Keep Going</Text>
       </TouchableOpacity>
-      {/* TEMP BUTTON FOR TESTING GEOFENCE */}
-      <TouchableOpacity 
-        style={{ backgroundColor: 'red', padding: 12, borderRadius: 8, width: '100%', marginBottom: 12, alignItems: 'center' }} 
-        onPress={async () => {
-          try {
-            const { coords } = await Location.getCurrentPositionAsync({});
-            // Adding 0.003 to latitude moves you approximately 333 meters North
-            const spoofedLat = coords.latitude + 0.003; 
-            
-            const result = await apiRequest(`/journey/${journeyId}/location`, {
-              method: 'PATCH',
-              body: JSON.stringify({ lat: spoofedLat, lng: coords.longitude, accuracy: coords.accuracy }),
-            });
-            setInsideGeofence(result.insideGeofence);
-          } catch (err) {
-            console.error(err);
-          }
-        }}
-      >
-        <Text style={{ color: 'white', fontWeight: 'bold' }}>TEST: Jump 300m Away</Text>
-      </TouchableOpacity>
+      
       <TouchableOpacity style={styles.cancelButton} onPress={handleCancel}>
         <Text style={styles.cancelText}>Cancel Journey</Text>
       </TouchableOpacity>
@@ -139,10 +110,8 @@ export default function ActiveJourneyScreen({ route, navigation }: Props) {
 
 const styles = StyleSheet.create({
   container: { flex: 1, padding: 24, justifyContent: 'center', alignItems: 'center' },
-  // NEW: Styles for the warning banner
   geofenceBanner: { backgroundColor: '#FEE2E2', padding: 12, borderRadius: 8, marginBottom: 24, width: '100%' },
   geofenceBannerText: { color: '#991B1B', fontSize: 14, textAlign: 'center', fontWeight: 'bold' },
-  
   title: { fontSize: 24, fontWeight: 'bold', color: '#D97706', marginBottom: 8 },
   subtitle: { fontSize: 14, color: '#6B7280', marginBottom: 32 },
   safeButton: { backgroundColor: '#16A34A', borderRadius: 80, width: 160, height: 160, justifyContent: 'center', alignItems: 'center', marginBottom: 24 },
