@@ -101,6 +101,15 @@ export default function HomeScreen({ navigation }: Props) {
       <TouchableOpacity style={styles.signOutButton} onPress={signOut}>
         <Text style={styles.signOutText}>Log out</Text>
       </TouchableOpacity>
+
+      {/* DISCREET EVIDENCE CAPTURE BUTTON */}
+      <TouchableOpacity
+        style={styles.evidenceButton}
+        onLongPress={() => (navigation as any).navigate('EvidenceCapture')}
+        delayLongPress={1500}
+      >
+        <Text style={styles.evidenceButtonText}>⏺</Text>
+      </TouchableOpacity>
     </View>
   );
 }
@@ -115,4 +124,6 @@ const styles = StyleSheet.create({
   buttonText: { color: '#fff', fontSize: 18, fontWeight: 'bold' },
   signOutButton: { marginTop: 12, alignItems: 'center' },
   signOutText: { color: '#DC2626', fontSize: 15 },
+  evidenceButton: { position: 'absolute', bottom: 24, right: 24, width: 44, height: 44, borderRadius: 22, backgroundColor: '#EDE9FE', justifyContent: 'center', alignItems: 'center' },
+  evidenceButtonText: { fontSize: 16, color: '#6B7280' },
 });

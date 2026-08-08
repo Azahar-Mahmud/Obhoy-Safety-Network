@@ -29,6 +29,7 @@ import ReportCategoryScreen from '../screens/ReportCategoryScreen';
 import ReportConfirmScreen from '../screens/ReportConfirmScreen';
 import ReportDescriptionScreen from '../screens/ReportDescriptionScreen';
 import ReportSuccessScreen from '../screens/ReportSuccessScreen';
+import EvidenceCaptureScreen from '../screens/EvidenceCaptureScreen'; // <--- NEW IMPORT
 
 // Discreet Mode Screens
 import CalculatorScreen from '../screens/CalculatorScreen';
@@ -39,6 +40,7 @@ import MedicalCardEditScreen from '../screens/MedicalCardEditScreen';
 import { useFallDetection } from '../context/FallDetectionContext';
 import FallDetectedScreen from '../screens/FallDetectedScreen';
 import MedicalCardScreen from '../screens/MedicalCardScreen';
+
 export type RootStackParamList = {
   PhoneEntry: undefined;
   Otp: { phone: string; otpWindowSeconds: number };
@@ -68,6 +70,7 @@ export type RootStackParamList = {
   NearbyAlerts: undefined;
   MedicalCardEdit: undefined;
   LastAlertStatus: undefined;
+  EvidenceCapture: undefined; // <--- NEW SCREEN ROUTE
 };
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
@@ -132,6 +135,7 @@ export default function AppNavigator() {
             <Stack.Screen name="NearbyAlerts" component={NearbyAlertsScreen} options={{ title: 'Nearby Alerts' }} />
             <Stack.Screen name="MedicalCardEdit" component={MedicalCardEditScreen} options={{ title: 'Medical Card' }} />
             <Stack.Screen name="LastAlertStatus" component={LastAlertStatusScreen} options={{ title: 'Last Alert' }} />
+            <Stack.Screen name="EvidenceCapture" component={EvidenceCaptureScreen} options={{ title: 'Recording' }} />
           </>
         )}
       </Stack.Navigator>

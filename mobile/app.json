@@ -33,7 +33,9 @@
         "NEARBY_WIFI_DEVICES",
         "ACCESS_FINE_LOCATION",
         "VIBRATE",
-        "REQUEST_IGNORE_BATTERY_OPTIMIZATIONS"
+        "REQUEST_IGNORE_BATTERY_OPTIMIZATIONS",
+        "CAMERA",
+        "RECORD_AUDIO"
       ]
     },
     "web": {
@@ -43,7 +45,9 @@
       "expo-secure-store",
       "./plugins/withDiscreetMode.js",
       "expo-nearby-connections",
-      "expo-background-task"
+      "expo-background-task",
+      "expo-camera",
+      "expo-sharing"
     ]
   }
 }
