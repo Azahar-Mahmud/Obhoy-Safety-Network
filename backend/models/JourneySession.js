@@ -19,6 +19,13 @@ const journeySessionSchema = new mongoose.Schema({
     phone: String,
     status: { type: String, enum: ['sent', 'failed'], default: 'sent' },
   }],
+  
+  // New fields for Geofence Safety Alerts
+  geofenceEnabled: { type: Boolean, default: false },
+  geofenceRadiusMeters: { type: Number, default: null },
+  geofenceCenter: { lat: Number, lng: Number },
+  geofenceAlerted: { type: Boolean, default: false },
+
 }, { timestamps: true });
 
 module.exports = mongoose.model('JourneySession', journeySessionSchema);

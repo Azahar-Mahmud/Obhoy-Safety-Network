@@ -10,6 +10,7 @@ router.get('/:token', async (req, res) => {
   if (sos) {
     return res.json({ kind: 'sos', status: sos.status, location: sos.location, updatedAt: sos.location?.updatedAt });
   }
+  
   const journey = await JourneySession.findOne({ trackingToken: req.params.token });
   if (journey) {
     return res.json({
@@ -18,8 +19,13 @@ router.get('/:token', async (req, res) => {
       location: journey.currentLocation,
       updatedAt: journey.currentLocation?.updatedAt,
       destinationLabel: journey.destinationLabel,
+      // NEW: Included geofence data for Step 4
+      geofence: journey.geofenceEnabled
+        ? { center: journey.geofenceCenter, radiusMeters: journey.geofenceRadiusMeters, alerted: journey.geofenceAlerted }
+        : null,
     });
   }
+  
   // <--- ADDED EVIDENCE CHECK
   const evidence = await EvidenceSession.findOne({ trackingToken: req.params.token });
   if (evidence) {
