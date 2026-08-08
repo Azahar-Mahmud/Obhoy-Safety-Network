@@ -3,7 +3,7 @@ const crypto = require('crypto');
 const EvidenceSession = require('../models/EvidenceSession');
 const TrustedContact = require('../models/TrustedContact');
 const authMiddleware = require('../middleware/authMiddleware');
-const { sendSms } = require('../utils/textbee');
+const { sendSms } = require('../utils/smsGateway'); // <--- FIXED HERE
 
 const router = express.Router();
 router.use(authMiddleware);

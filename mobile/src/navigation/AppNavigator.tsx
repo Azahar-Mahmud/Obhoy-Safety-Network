@@ -1,3 +1,4 @@
+import EvidenceListScreen from '../screens/EvidenceListScreen';
 import NearbyAlertsScreen from '../screens/NearbyAlertsScreen';
 import LastAlertStatusScreen from '../screens/LastAlertStatusScreen';
 import React from 'react';
@@ -70,7 +71,8 @@ export type RootStackParamList = {
   NearbyAlerts: undefined;
   MedicalCardEdit: undefined;
   LastAlertStatus: undefined;
-  EvidenceCapture: undefined; // <--- NEW SCREEN ROUTE
+  EvidenceCapture: { autoStart?: boolean } | undefined;
+  EvidenceList: { justSavedPath: string };
 };
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
@@ -136,6 +138,7 @@ export default function AppNavigator() {
             <Stack.Screen name="MedicalCardEdit" component={MedicalCardEditScreen} options={{ title: 'Medical Card' }} />
             <Stack.Screen name="LastAlertStatus" component={LastAlertStatusScreen} options={{ title: 'Last Alert' }} />
             <Stack.Screen name="EvidenceCapture" component={EvidenceCaptureScreen} options={{ title: 'Recording' }} />
+            <Stack.Screen name="EvidenceList" component={EvidenceListScreen} options={{ title: 'Evidence Saved' }} />
           </>
         )}
       </Stack.Navigator>

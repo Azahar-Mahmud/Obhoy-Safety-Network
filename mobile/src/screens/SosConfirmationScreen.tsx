@@ -1,11 +1,27 @@
+import React, { useEffect } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, FlatList } from 'react-native';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../navigation/AppNavigator';
+import * as SecureStore from 'expo-secure-store';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'SosConfirmation'>;
 
 export default function SosConfirmationScreen({ route, navigation }: Props) {
   const { channel, contactsNotified, lanBroadcastSent, meshBroadcastSent, error } = route.params;
+
+  useEffect(() => {
+    if (channel !== 'failed') {
+      const timer = setTimeout(() => {
+        SecureStore.getItemAsync('obhoy_auto_record_sos').then((val) => {
+          if (val === 'true') {
+            navigation.navigate('EvidenceCapture', { autoStart: true });
+          }
+        });
+      }, 2000); // 2 second delay so user sees SOS confirmation first
+
+      return () => clearTimeout(timer);
+    }
+  }, [channel, navigation]);
 
   return (
     <View style={styles.container}>

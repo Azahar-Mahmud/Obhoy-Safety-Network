@@ -6,16 +6,18 @@ import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../navigation/AppNavigator';
 import * as SecureStore from 'expo-secure-store';
 import SilentModeToggle from '../components/SilentModeToggle';
-import BatteryAlertSettings from '../components/BatteryAlertSettings'; // <--- NEW IMPORT
+import BatteryAlertSettings from '../components/BatteryAlertSettings';
 
 const FALL_DETECTION_KEY = 'obhoy_fall_detection_enabled';
 const FALL_SENSITIVITY_KEY = 'obhoy_fall_sensitivity';
+const AUTO_RECORD_KEY = 'obhoy_auto_record_sos';
 
 export default function SettingsScreen() {
   const { discreetModeEnabled, enable, disable } = useDiscreetMode();
   const [busy, setBusy] = useState(false);
   const [fallEnabled, setFallEnabled] = useState(false);
   const [sensitivity, setSensitivity] = useState<'low' | 'medium' | 'high'>('medium');
+  const [autoRecordEnabled, setAutoRecordEnabled] = useState(false);
 
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
 
@@ -24,6 +26,7 @@ export default function SettingsScreen() {
     SecureStore.getItemAsync(FALL_SENSITIVITY_KEY).then((v) => {
       if (v === 'low' || v === 'medium' || v === 'high') setSensitivity(v);
     });
+    SecureStore.getItemAsync(AUTO_RECORD_KEY).then((v) => setAutoRecordEnabled(v === 'true'));
   }, []);
 
   const handleDiscreetToggle = (value: boolean) => {
@@ -58,6 +61,11 @@ export default function SettingsScreen() {
     await SecureStore.setItemAsync(FALL_SENSITIVITY_KEY, value);
   };
 
+  const toggleAutoRecord = async (value: boolean) => {
+    setAutoRecordEnabled(value);
+    await SecureStore.setItemAsync(AUTO_RECORD_KEY, String(value));
+  };
+
   return (
     <ScrollView style={styles.container}>
       {/* Discreet Mode */}
@@ -78,8 +86,22 @@ export default function SettingsScreen() {
 
       <View style={styles.divider} />
 
-      {/* NEW: Battery Auto-Alert */}
+      {/* Battery Auto-Alert */}
       <BatteryAlertSettings />
+
+      <View style={styles.divider} />
+
+      {/* Auto-record during SOS */}
+      <View style={styles.row}>
+        <View style={{ flex: 1 }}>
+          <Text style={styles.label}>Auto-record Video during SOS</Text>
+          <Text style={styles.hint}>
+            Automatically records video & audio locally when an SOS alert is sent.
+          </Text>
+        </View>
+        <Switch value={autoRecordEnabled} onValueChange={toggleAutoRecord} />
+      </View>
+
       <View style={styles.divider} />
 
       {/* Fall Detection */}
