@@ -119,7 +119,7 @@ export default function EvidenceCaptureScreen({ route, navigation }: Props) {
 
   return (
     <View style={styles.container}>
-      <CameraView ref={cameraRef} mode="video" style={styles.tinyCamera} />
+      <CameraView ref={cameraRef} mode="video" videoQuality="720p" style={styles.tinyCamera} />
 
       {warning && <Text style={styles.warning}>{warning}</Text>}
 

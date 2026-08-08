@@ -44,22 +44,68 @@ async function getOrCreateKey(): Promise<string> {
 
 export async function encryptFile(sourceUri: string): Promise<string> {
   const key = await getOrCreateKey();
-  const base64Data = await FileSystem.readAsStringAsync(sourceUri, { encoding: FileSystem.EncodingType.Base64 });
-  const encrypted = CryptoJS.AES.encrypt(base64Data, key).toString();
-  const destPath = `${FileSystem.documentDirectory}evidence_${Date.now()}.enc`;
-  await FileSystem.writeAsStringAsync(destPath, encrypted, { encoding: FileSystem.EncodingType.UTF8 });
+  const fileInfo = await FileSystem.getInfoAsync(sourceUri);
+  const fileSize = fileInfo.exists ? fileInfo.size : 0;
+
+  // Create a dedicated directory for encrypted chunk files
+  const sessionDir = `${FileSystem.documentDirectory}evidence_${Date.now()}/`;
+  await FileSystem.makeDirectoryAsync(sessionDir, { intermediates: true });
+
+  const CHUNK_SIZE = 2 * 1024 * 1024; // 2MB chunk (uses under 5MB RAM)
+  let position = 0;
+  let chunkIndex = 0;
+
+  while (position < fileSize) {
+    const length = Math.min(CHUNK_SIZE, fileSize - position);
+    const chunkBase64 = await FileSystem.readAsStringAsync(sourceUri, {
+      encoding: FileSystem.EncodingType.Base64,
+      position,
+      length,
+    });
+
+    const encryptedChunk = CryptoJS.AES.encrypt(chunkBase64, key).toString();
+    const chunkPath = `${sessionDir}chunk_${chunkIndex}.enc`;
+
+    // Save encrypted chunk directly to disk
+    await FileSystem.writeAsStringAsync(chunkPath, encryptedChunk, { encoding: FileSystem.EncodingType.UTF8 });
+
+    position += length;
+    chunkIndex++;
+  }
+
+  // Delete raw unencrypted video source
   await FileSystem.deleteAsync(sourceUri, { idempotent: true });
-  return destPath;
+  return sessionDir;
 }
 
-export async function decryptFile(encPath: string): Promise<string> {
+export async function decryptFile(sessionDir: string): Promise<string> {
   const key = await getOrCreateKey();
-  const encrypted = await FileSystem.readAsStringAsync(encPath, { encoding: FileSystem.EncodingType.UTF8 });
-  
-  // FIX: Convert decrypted string back using Utf8, not Base64!
-  const decryptedBase64 = CryptoJS.AES.decrypt(encrypted, key).toString(CryptoJS.enc.Utf8);
-  
   const destPath = `${FileSystem.cacheDirectory}evidence_decrypted_${Date.now()}.mp4`;
-  await FileSystem.writeAsStringAsync(destPath, decryptedBase64, { encoding: FileSystem.EncodingType.Base64 });
+
+  // Initialize empty destination file
+  await FileSystem.writeAsStringAsync(destPath, '', { encoding: FileSystem.EncodingType.Base64 });
+
+  // Read and sort chunk files in correct numerical order
+  const dirContents = await FileSystem.readDirectoryAsync(sessionDir);
+  const chunkFiles = dirContents
+    .filter((f) => f.startsWith('chunk_') && f.endsWith('.enc'))
+    .sort((a, b) => {
+      const idxA = parseInt(a.replace('chunk_', '').replace('.enc', ''), 10);
+      const idxB = parseInt(b.replace('chunk_', '').replace('.enc', ''), 10);
+      return idxA - idxB;
+    });
+
+  for (const file of chunkFiles) {
+    const chunkPath = `${sessionDir}${file}`;
+    const encryptedChunk = await FileSystem.readAsStringAsync(chunkPath, { encoding: FileSystem.EncodingType.UTF8 });
+    const decryptedBase64 = CryptoJS.AES.decrypt(encryptedChunk, key).toString(CryptoJS.enc.Utf8);
+
+    // Stream & append decrypted Base64 chunk directly to file
+    await FileSystem.writeAsStringAsync(destPath, decryptedBase64, {
+      encoding: FileSystem.EncodingType.Base64,
+      append: true,
+    });
+  }
+
   return destPath;
 }
