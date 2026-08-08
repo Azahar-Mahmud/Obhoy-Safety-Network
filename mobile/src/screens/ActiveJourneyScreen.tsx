@@ -1,15 +1,15 @@
 import { useDiscreetMode } from '../context/DiscreetModeContext';
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, Alert } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet, Alert, Vibration, Modal } from 'react-native';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import * as Location from 'expo-location';
 import * as Notifications from 'expo-notifications';
 import { RootStackParamList } from '../navigation/AppNavigator';
 import { apiRequest } from '../api/client';
+import { checkRouteDanger, NearbyReport } from '../utils/routeDangerCheck';
 
 Notifications.setNotificationHandler({
   handleNotification: async () => ({
-    shouldShowAlert: true,
     shouldPlaySound: true,
     shouldSetBadge: false,
     shouldShowBanner: true,
@@ -23,8 +23,15 @@ const LOCATION_UPDATE_MS = 60000;
 export default function ActiveJourneyScreen({ route, navigation }: Props) {
   const { journeyId, checkinIntervalMinutes } = route.params;
   const { discreetModeEnabled } = useDiscreetMode();
+  
   const [lastCheckin, setLastCheckin] = useState(new Date());
   const [insideGeofence, setInsideGeofence] = useState<boolean | null>(null);
+  
+  // Danger Warning State & Cooldown
+  const [dangerWarning, setDangerWarning] = useState<NearbyReport[] | null>(null);
+  const lastWarnedRef = useRef<number>(0);
+  const WARNING_COOLDOWN_MS = 10 * 60 * 1000; // 10 minutes
+
   const notificationIdRef = useRef<string | null>(null);
 
   const scheduleReminder = useCallback(async (minutes: number) => {
@@ -52,13 +59,27 @@ export default function ActiveJourneyScreen({ route, navigation }: Props) {
     const locInterval = setInterval(async () => {
       try {
         const { coords } = await Location.getCurrentPositionAsync({});
+        
+        // 1. Send location to backend and check geofence
         const result = await apiRequest(`/journey/${journeyId}/location`, {
           method: 'PATCH',
           body: JSON.stringify({ lat: coords.latitude, lng: coords.longitude, accuracy: coords.accuracy }),
         });
         setInsideGeofence(result.insideGeofence);
+
+        // 2. Check for Route Danger nearby
+        const now = Date.now();
+        if (now - lastWarnedRef.current > WARNING_COOLDOWN_MS) {
+          const { shouldWarn, reports } = await checkRouteDanger(coords.latitude, coords.longitude);
+          if (shouldWarn) {
+            lastWarnedRef.current = now;
+            Vibration.vibrate([0, 300, 200, 300]);
+            setDangerWarning(reports);
+          }
+        }
       } catch {}
     }, LOCATION_UPDATE_MS);
+    
     return () => {
       clearInterval(locInterval);
       if (notificationIdRef.current) Notifications.cancelScheduledNotificationAsync(notificationIdRef.current);
@@ -104,6 +125,31 @@ export default function ActiveJourneyScreen({ route, navigation }: Props) {
       <TouchableOpacity style={styles.cancelButton} onPress={handleCancel}>
         <Text style={styles.cancelText}>Cancel Journey</Text>
       </TouchableOpacity>
+
+      {/* Danger Warning Modal */}
+      <Modal visible={!!dangerWarning} transparent animationType="fade">
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalCard}>
+            <Text style={styles.modalTitle}>Caution: reports nearby</Text>
+            <Text style={styles.modalBody}>
+              Several safety reports have come in near your current location. Consider an alternate route.
+            </Text>
+            <TouchableOpacity
+              style={styles.modalButton}
+              onPress={() => {
+                setDangerWarning(null);
+                // Type casting below just in case 'Map' is not perfectly defined in your RootStackParamList yet
+                (navigation as any).navigate('Map'); 
+              }}
+            >
+              <Text style={styles.modalButtonText}>View on Map</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.modalDismiss} onPress={() => setDangerWarning(null)}>
+              <Text style={styles.modalDismissText}>Dismiss</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 }
@@ -120,4 +166,14 @@ const styles = StyleSheet.create({
   buttonText: { color: '#fff', fontSize: 16, fontWeight: 'bold' },
   cancelButton: { padding: 12 },
   cancelText: { color: '#DC2626', fontSize: 15 },
+  
+  // New Modal Styles
+  modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', alignItems: 'center', padding: 24 },
+  modalCard: { backgroundColor: '#fff', borderRadius: 12, padding: 20, width: '100%' },
+  modalTitle: { fontSize: 18, fontWeight: 'bold', color: '#92400E', marginBottom: 8 },
+  modalBody: { fontSize: 14, color: '#111827', marginBottom: 16 },
+  modalButton: { backgroundColor: '#6B21A8', borderRadius: 8, padding: 14, alignItems: 'center', marginBottom: 8 },
+  modalButtonText: { color: '#fff', fontSize: 15, fontWeight: 'bold' },
+  modalDismiss: { alignItems: 'center', padding: 8 },
+  modalDismissText: { color: '#6B7280', fontSize: 14 },
 });
