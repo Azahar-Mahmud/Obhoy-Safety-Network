@@ -8,6 +8,43 @@ router.use(authMiddleware);
 const DECAY_DAYS = 90;
 const VALID_CATEGORIES = ['mugging', 'harassment', 'checkpost_harassment', 'poor_lighting', 'safe_spot'];
 
+// --- STEP 1: The scoring function ---
+const SEVERITY_WEIGHTS = {
+  mugging: -3,
+  harassment: -2.5,
+  checkpost_harassment: -2,
+  poor_lighting: -1,
+  safe_spot: 2,
+};
+
+function computeAreaScore(reports) {
+  if (reports.length === 0) {
+    return { score: null, label: 'Not enough data', reportCount: 0 };
+  }
+
+  const now = Date.now();
+  let rawScore = 0;
+  for (const report of reports) {
+    const ageDays = (now - new Date(report.createdAt).getTime()) / (1000 * 60 * 60 * 24);
+    const recencyWeight = Math.max(0, 1 - ageDays / 90); // matches the existing 90-day decay window
+    const severityWeight = SEVERITY_WEIGHTS[report.category] || 0;
+    const verificationMultiplier = report.verifiedCount > 0 ? 1.5 : 1;
+    rawScore += severityWeight * recencyWeight * verificationMultiplier;
+  }
+
+  const normalized = Math.max(1, Math.min(5, 3 + rawScore));
+  const score = Math.round(normalized * 10) / 10;
+
+  let label;
+  if (score >= 4) label = 'Generally safe';
+  else if (score >= 3) label = 'Some caution advised';
+  else if (score >= 2) label = 'Exercise caution';
+  else label = 'High caution advised';
+
+  return { score, label, reportCount: reports.length };
+}
+// ------------------------------------
+
 router.post('/', async (req, res) => {
   try {
     const { category, lat, lng, description } = req.body;
@@ -26,6 +63,41 @@ router.post('/', async (req, res) => {
     res.status(500).json({ error: 'Something went wrong.' });
   }
 });
+
+// --- STEP 2: The Area Score Route ---
+router.get('/area-score', async (req, res) => {
+  try {
+    const lat = parseFloat(req.query.lat);
+    const lng = parseFloat(req.query.lng);
+    const radiusKm = parseFloat(req.query.radius) || 1;
+    
+    if (isNaN(lat) || isNaN(lng)) return res.status(400).json({ error: 'lat and lng are required.' });
+
+    const cutoff = new Date(Date.now() - DECAY_DAYS * 24 * 60 * 60 * 1000);
+
+    const reports = await IncidentReport.find({
+      createdAt: { $gte: cutoff },
+      location: {
+        $near: {
+          $geometry: { type: 'Point', coordinates: [lng, lat] },
+          $maxDistance: radiusKm * 1000,
+        },
+      },
+    }).select('category createdAt verifiedBy');
+
+    const summarized = reports.map((r) => ({
+      category: r.category,
+      createdAt: r.createdAt,
+      verifiedCount: r.verifiedBy ? r.verifiedBy.length : 0,
+    }));
+
+    res.json(computeAreaScore(summarized));
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Something went wrong.' });
+  }
+});
+// ------------------------------------
 
 router.get('/nearby', async (req, res) => {
   try {
