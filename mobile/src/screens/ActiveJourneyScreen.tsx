@@ -7,6 +7,7 @@ import * as Notifications from 'expo-notifications';
 import { RootStackParamList } from '../navigation/AppNavigator';
 import { apiRequest } from '../api/client';
 import { checkRouteDanger, NearbyReport } from '../utils/routeDangerCheck';
+import ScheduledCheckinView from './ScheduledCheckinView'; // --- STEP 8: Import new view ---
 
 Notifications.setNotificationHandler({
   handleNotification: async () => ({
@@ -21,7 +22,15 @@ type Props = NativeStackScreenProps<RootStackParamList, 'ActiveJourney'>;
 const LOCATION_UPDATE_MS = 60000;
 
 export default function ActiveJourneyScreen({ route, navigation }: Props) {
-  const { journeyId, checkinIntervalMinutes } = route.params;
+  // --- STEP 8: Extract mode and deadline ---
+  const { journeyId, checkinIntervalMinutes, mode, scheduledDeadline } = route.params;
+
+  // Branch the screen if it's a scheduled check-in (MUST be above all hooks!)
+  if (mode === 'scheduled') {
+    return <ScheduledCheckinView journeyId={journeyId} deadline={scheduledDeadline!} navigation={navigation} />;
+  }
+  // -----------------------------------------
+
   const { discreetModeEnabled } = useDiscreetMode();
   
   const [lastCheckin, setLastCheckin] = useState(new Date());
@@ -32,9 +41,8 @@ export default function ActiveJourneyScreen({ route, navigation }: Props) {
   const lastWarnedRef = useRef<number>(0);
   const WARNING_COOLDOWN_MS = 10 * 60 * 1000; // 10 minutes
 
-  // --- STEP 6: State for Two-Way Check-in ---
+  // State for Two-Way Check-in
   const [checkinRequested, setCheckinRequested] = useState(false);
-  // ------------------------------------------
 
   const notificationIdRef = useRef<string | null>(null);
 
@@ -71,9 +79,8 @@ export default function ActiveJourneyScreen({ route, navigation }: Props) {
         });
         setInsideGeofence(result.insideGeofence);
         
-        // --- STEP 6: Capture the pending request flag ---
+        // Capture the pending request flag
         setCheckinRequested(!!result.pendingCheckinRequest);
-        // ------------------------------------------------
 
         // 2. Check for Route Danger nearby
         const now = Date.now();
@@ -111,7 +118,6 @@ export default function ActiveJourneyScreen({ route, navigation }: Props) {
     navigation.popToTop();
   };
 
-  // --- STEP 6: Handler for the Two-Way Response ---
   const respondToCheckin = async (response: 'safe' | 'help') => {
     await apiRequest(`/journey/${journeyId}/checkin-response`, {
       method: 'PATCH',
@@ -122,7 +128,6 @@ export default function ActiveJourneyScreen({ route, navigation }: Props) {
       setLastCheckin(new Date());
     }
   };
-  // ------------------------------------------------
 
   return (
     <View style={styles.container}>
@@ -147,7 +152,7 @@ export default function ActiveJourneyScreen({ route, navigation }: Props) {
         <Text style={styles.cancelText}>Cancel Journey</Text>
       </TouchableOpacity>
 
-      {/* Two-Way Check-in Modal (STEP 6) */}
+      {/* Two-Way Check-in Modal */}
       <Modal visible={checkinRequested} transparent animationType="fade">
         <View style={styles.modalOverlay}>
           <View style={styles.modalCard}>
@@ -203,7 +208,6 @@ const styles = StyleSheet.create({
   cancelButton: { padding: 12 },
   cancelText: { color: '#DC2626', fontSize: 15 },
   
-  // Shared Modal Styles
   modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', alignItems: 'center', padding: 24 },
   modalCard: { backgroundColor: '#fff', borderRadius: 12, padding: 20, width: '100%' },
   modalTitle: { fontSize: 18, fontWeight: 'bold', color: '#92400E', marginBottom: 8 },
@@ -213,7 +217,6 @@ const styles = StyleSheet.create({
   modalDismiss: { alignItems: 'center', padding: 8 },
   modalDismissText: { color: '#6B7280', fontSize: 14 },
 
-  // --- STEP 6: New Button Styles for Two-Way Check-in ---
   safeResponseButton: { backgroundColor: '#16A34A', borderRadius: 8, padding: 14, alignItems: 'center', marginBottom: 8 },
   helpResponseButton: { backgroundColor: '#DC2626', borderRadius: 8, padding: 14, alignItems: 'center' },
   responseButtonText: { color: '#fff', fontSize: 16, fontWeight: 'bold' },

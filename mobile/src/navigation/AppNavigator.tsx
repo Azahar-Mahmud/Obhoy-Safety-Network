@@ -59,7 +59,12 @@ export type RootStackParamList = {
     error?: string;
   };
   JourneySetup: undefined;
-  ActiveJourney: { journeyId: string; checkinIntervalMinutes: number };
+  ActiveJourney: { 
+    journeyId: string; 
+    checkinIntervalMinutes: number; 
+    mode?: 'interval' | 'scheduled'; 
+    scheduledDeadline?: string; 
+  };
   Directory: undefined;
   Map: undefined;
   ReportCategory: undefined;
