@@ -13,6 +13,12 @@ const journeySessionSchema = new mongoose.Schema({
   },
   checkinIntervalMinutes: { type: Number, default: 30 },
   lastCheckinAt: { type: Date, default: Date.now },
+  
+  // --- STEP 2: New fields for Scheduled Check-in (Obhoy_26) ---
+  mode: { type: String, enum: ['interval', 'scheduled'], default: 'interval' },
+  scheduledDeadline: { type: Date, default: null },
+  // -------------------------------------------------------------
+
   contactsNotified: [{
     contactId: mongoose.Schema.Types.ObjectId,
     name: String,
@@ -26,7 +32,7 @@ const journeySessionSchema = new mongoose.Schema({
   geofenceCenter: { lat: Number, lng: Number },
   geofenceAlerted: { type: Boolean, default: false },
 
-  // New fields for Two-Way Check-in Confirmation (Obhoy_25)
+  // Two-Way Check-in Confirmation
   pendingCheckinRequest: { type: Boolean, default: false },
   pendingCheckinRequestedAt: { type: Date, default: null },
   lastTwoWayResponse: { type: String, enum: ['safe', 'help', null], default: null },

@@ -22,8 +22,12 @@ router.get('/:token', async (req, res) => {
       geofence: journey.geofenceEnabled
         ? { center: journey.geofenceCenter, radiusMeters: journey.geofenceRadiusMeters, alerted: journey.geofenceAlerted }
         : null,
-      // --- STEP 3: Surface the response for the web tracker ---
       lastTwoWayResponse: journey.lastTwoWayResponse,
+      
+      // --- STEP 5: Surface the mode on the tracker ---
+      mode: journey.mode,
+      scheduledDeadline: journey.scheduledDeadline,
+      // -----------------------------------------------
     });
   }
   
@@ -35,7 +39,6 @@ router.get('/:token', async (req, res) => {
   return res.status(404).json({ error: 'Link not found or expired.' });
 });
 
-// --- STEP 3: The contact-facing request route ---
 router.post('/:token/request-checkin', async (req, res) => {
   const journey = await JourneySession.findOne({ trackingToken: req.params.token, status: 'active' });
   if (!journey) return res.status(404).json({ error: 'Journey not found or not active.' });
@@ -50,6 +53,5 @@ router.post('/:token/request-checkin', async (req, res) => {
   await journey.save();
   res.json({ requested: true });
 });
-// ------------------------------------------------
 
 module.exports = router;

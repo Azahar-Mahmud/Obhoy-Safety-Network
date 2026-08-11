@@ -21,13 +21,21 @@ function distanceMeters(lat1, lng1, lat2, lng2) {
 
 router.post('/start', async (req, res) => {
   try {
-    const { destinationLabel, checkinIntervalMinutes, lat, lng, accuracy, geofenceEnabled, geofenceRadiusMeters } = req.body;
+    // --- OBHOY_26 STEP 3: Accept the new fields from the app ---
+    const { 
+      destinationLabel, checkinIntervalMinutes, lat, lng, accuracy, 
+      geofenceEnabled, geofenceRadiusMeters, mode, scheduledDeadline 
+    } = req.body;
+    
     const trackingToken = crypto.randomBytes(16).toString('hex');
     
     const journey = await JourneySession.create({
       userId: req.userId,
       trackingToken,
       destinationLabel: destinationLabel || '',
+      // Map the new fields to the database model
+      mode: mode || 'interval',
+      scheduledDeadline: mode === 'scheduled' && scheduledDeadline ? new Date(scheduledDeadline) : null,
       checkinIntervalMinutes: checkinIntervalMinutes || 30,
       lastCheckinAt: new Date(),
       currentLocation: lat && lng ? { lat, lng, accuracy, updatedAt: new Date() } : undefined,
@@ -35,8 +43,9 @@ router.post('/start', async (req, res) => {
       geofenceRadiusMeters: geofenceEnabled ? geofenceRadiusMeters : null,
       geofenceCenter: geofenceEnabled && typeof lat === 'number' ? { lat, lng } : undefined,
     });
+    // ------------------------------------------------------------
     
-    // --- STEP 2: Send the tracker link at journey start ---
+    // Send the tracker link at journey start
     const trackUrl = `${process.env.WEB_TRACKER_URL}/${trackingToken}`;
     const contacts = await TrustedContact.find({ userId: req.userId });
     const user = await User.findById(req.userId);
@@ -49,7 +58,6 @@ router.post('/start', async (req, res) => {
         console.error('Journey-start SMS failed for', contact.phone, err.message);
       }
     }
-    // ------------------------------------------------------
 
     res.json({ journeyId: journey._id, trackingToken, trackUrl, checkinIntervalMinutes: journey.checkinIntervalMinutes });
   } catch (err) {
@@ -92,11 +100,11 @@ router.patch('/:id/location', async (req, res) => {
 
   await journey.save();
   
-  // --- STEP 5: Surface the pending flag on the existing poll ---
+  // Surface the pending flag on the existing poll
   res.json({ updated: true, insideGeofence, pendingCheckinRequest: journey.pendingCheckinRequest });
 });
 
-// --- STEP 4: The traveler's response route ---
+// The traveler's response route
 router.patch('/:id/checkin-response', async (req, res) => {
   const { response } = req.body; // 'safe' or 'help'
   const journey = await JourneySession.findOne({ _id: req.params.id, userId: req.userId, status: 'active' });
@@ -126,7 +134,6 @@ router.patch('/:id/checkin-response', async (req, res) => {
   await journey.save();
   res.json({ recorded: true, escalated: true });
 });
-// ---------------------------------------------
 
 router.patch('/:id/checkin', async (req, res) => {
   const journey = await JourneySession.findOneAndUpdate(

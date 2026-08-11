@@ -16,13 +16,28 @@ router.post('/check-overdue-journeys', async (req, res) => {
   let alerted = 0;
 
   for (const journey of activeJourneys) {
-    const deadline = new Date(journey.lastCheckinAt).getTime() + journey.checkinIntervalMinutes * 60 * 1000;
+    
+    // --- STEP 4: Branch the overdue check ---
+    let deadline;
+    if (journey.mode === 'scheduled') {
+      if (!journey.scheduledDeadline) continue;
+      deadline = journey.scheduledDeadline.getTime();
+    } else {
+      deadline = new Date(journey.lastCheckinAt).getTime() + journey.checkinIntervalMinutes * 60 * 1000;
+    }
+
     if (now < deadline) continue;
+    // ----------------------------------------
 
     const user = await User.findById(journey.userId);
     const contacts = await TrustedContact.find({ userId: journey.userId });
     const trackUrl = `${process.env.WEB_TRACKER_URL}/${journey.trackingToken}`;
-    const message = `Obhoy Alert: ${user.phone} missed a journey check-in. Track live location: ${trackUrl}`;
+    
+    // --- STEP 4: Mode-specific alert message ---
+    const message = journey.mode === 'scheduled'
+      ? `Obhoy Alert: ${user.phone} did not confirm safety by their scheduled check-in time. Track live location: ${trackUrl}`
+      : `Obhoy Alert: ${user.phone} missed a journey check-in. Track live location: ${trackUrl}`;
+    // -------------------------------------------
 
     const notified = [];
     for (const contact of contacts) {

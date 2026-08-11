@@ -47,7 +47,8 @@
       "expo-nearby-connections",
       "expo-background-task",
       "expo-camera",
-      "expo-sharing"
+      "expo-sharing",
+      "@react-native-community/datetimepicker"
     ]
   }
 }
