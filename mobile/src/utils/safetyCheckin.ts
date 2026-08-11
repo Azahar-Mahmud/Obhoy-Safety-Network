@@ -22,7 +22,9 @@ export async function broadcastSafeCheckin(): Promise<SafetyCheckinResult> {
   } catch {
     // 2. If internet fails, fallback to Local Area Network (WiFi without internet)
     const lanResult = await sendLanAlert(lat, lng, 'Obhoy: Someone nearby just checked in as safe.');
-    if (lanResult.sent) return { channel: 'lan' };
+    
+    // FIX: lanResult is a boolean (true/false), so we evaluate it directly
+    if (lanResult) return { channel: 'lan' };
 
     // 3. If LAN fails, fallback to Bluetooth Mesh
     const meshBroadcastSent = await sendMeshAlert(lat, lng, 'Obhoy: Someone nearby just checked in as safe.');
