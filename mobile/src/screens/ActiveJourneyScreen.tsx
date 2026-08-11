@@ -32,6 +32,10 @@ export default function ActiveJourneyScreen({ route, navigation }: Props) {
   const lastWarnedRef = useRef<number>(0);
   const WARNING_COOLDOWN_MS = 10 * 60 * 1000; // 10 minutes
 
+  // --- STEP 6: State for Two-Way Check-in ---
+  const [checkinRequested, setCheckinRequested] = useState(false);
+  // ------------------------------------------
+
   const notificationIdRef = useRef<string | null>(null);
 
   const scheduleReminder = useCallback(async (minutes: number) => {
@@ -60,12 +64,16 @@ export default function ActiveJourneyScreen({ route, navigation }: Props) {
       try {
         const { coords } = await Location.getCurrentPositionAsync({});
         
-        // 1. Send location to backend and check geofence
+        // 1. Send location to backend and check geofence/checkin requests
         const result = await apiRequest(`/journey/${journeyId}/location`, {
           method: 'PATCH',
           body: JSON.stringify({ lat: coords.latitude, lng: coords.longitude, accuracy: coords.accuracy }),
         });
         setInsideGeofence(result.insideGeofence);
+        
+        // --- STEP 6: Capture the pending request flag ---
+        setCheckinRequested(!!result.pendingCheckinRequest);
+        // ------------------------------------------------
 
         // 2. Check for Route Danger nearby
         const now = Date.now();
@@ -103,6 +111,19 @@ export default function ActiveJourneyScreen({ route, navigation }: Props) {
     navigation.popToTop();
   };
 
+  // --- STEP 6: Handler for the Two-Way Response ---
+  const respondToCheckin = async (response: 'safe' | 'help') => {
+    await apiRequest(`/journey/${journeyId}/checkin-response`, {
+      method: 'PATCH',
+      body: JSON.stringify({ response }),
+    });
+    setCheckinRequested(false);
+    if (response === 'safe') {
+      setLastCheckin(new Date());
+    }
+  };
+  // ------------------------------------------------
+
   return (
     <View style={styles.container}>
       {insideGeofence === false && (
@@ -126,8 +147,24 @@ export default function ActiveJourneyScreen({ route, navigation }: Props) {
         <Text style={styles.cancelText}>Cancel Journey</Text>
       </TouchableOpacity>
 
+      {/* Two-Way Check-in Modal (STEP 6) */}
+      <Modal visible={checkinRequested} transparent animationType="fade">
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalCard}>
+            <Text style={styles.modalTitle}>A contact is checking on you</Text>
+            <Text style={styles.modalBody}>Are you safe?</Text>
+            <TouchableOpacity style={styles.safeResponseButton} onPress={() => respondToCheckin('safe')}>
+              <Text style={styles.responseButtonText}>I'm Safe</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.helpResponseButton} onPress={() => respondToCheckin('help')}>
+              <Text style={styles.responseButtonText}>I Need Help</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
+
       {/* Danger Warning Modal */}
-      <Modal visible={!!dangerWarning} transparent animationType="fade">
+      <Modal visible={!!dangerWarning && !checkinRequested} transparent animationType="fade">
         <View style={styles.modalOverlay}>
           <View style={styles.modalCard}>
             <Text style={styles.modalTitle}>Caution: reports nearby</Text>
@@ -138,7 +175,6 @@ export default function ActiveJourneyScreen({ route, navigation }: Props) {
               style={styles.modalButton}
               onPress={() => {
                 setDangerWarning(null);
-                // Type casting below just in case 'Map' is not perfectly defined in your RootStackParamList yet
                 (navigation as any).navigate('Map'); 
               }}
             >
@@ -167,7 +203,7 @@ const styles = StyleSheet.create({
   cancelButton: { padding: 12 },
   cancelText: { color: '#DC2626', fontSize: 15 },
   
-  // New Modal Styles
+  // Shared Modal Styles
   modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', alignItems: 'center', padding: 24 },
   modalCard: { backgroundColor: '#fff', borderRadius: 12, padding: 20, width: '100%' },
   modalTitle: { fontSize: 18, fontWeight: 'bold', color: '#92400E', marginBottom: 8 },
@@ -176,4 +212,9 @@ const styles = StyleSheet.create({
   modalButtonText: { color: '#fff', fontSize: 15, fontWeight: 'bold' },
   modalDismiss: { alignItems: 'center', padding: 8 },
   modalDismissText: { color: '#6B7280', fontSize: 14 },
+
+  // --- STEP 6: New Button Styles for Two-Way Check-in ---
+  safeResponseButton: { backgroundColor: '#16A34A', borderRadius: 8, padding: 14, alignItems: 'center', marginBottom: 8 },
+  helpResponseButton: { backgroundColor: '#DC2626', borderRadius: 8, padding: 14, alignItems: 'center' },
+  responseButtonText: { color: '#fff', fontSize: 16, fontWeight: 'bold' },
 });
