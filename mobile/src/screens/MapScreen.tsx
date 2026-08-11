@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useRef } from 'react';
 import { View, StyleSheet, TouchableOpacity, Text } from 'react-native';
 import { WebView } from 'react-native-webview';
 import { useFocusEffect } from '@react-navigation/native';
@@ -17,7 +17,14 @@ const CATEGORY_COLORS: Record<string, string> = {
   safe_spot: '#16A34A',
 };
 
-// --- STEP 5: Add checkins parameter to the HTML builder ---
+// --- STEP 5: Color helper for Area Safety Score ---
+function getScoreColor(score: number | null) {
+  if (score === null) return { backgroundColor: '#9CA3AF' }; // Gray for not enough data
+  if (score >= 4) return { backgroundColor: '#16A34A' };     // Green
+  if (score >= 3) return { backgroundColor: '#F59E0B' };     // Amber
+  return { backgroundColor: '#DC2626' };                      // Red
+}
+
 function buildMapHtml(lat: number, lng: number, reports: any[], checkins: any[]) {
   const reportMarkers = reports.map((r) => {
     const color = CATEGORY_COLORS[r.category] || '#6B7280';
@@ -28,10 +35,8 @@ function buildMapHtml(lat: number, lng: number, reports: any[], checkins: any[])
     return `L.circleMarker([${r.lat}, ${r.lng}], {radius: ${radius}, color: '${color}', fillColor: '${color}', fillOpacity: ${opacity}}).addTo(map).bindPopup(${JSON.stringify(label)});`;
   }).join('\n');
 
-  // New distinct markers for the community safety check-ins
   const checkinMarkers = checkins.map((c) => {
     const label = `<b>Community Check-in</b><br/>Someone marked themselves safe here recently.`;
-    // Using a custom divIcon with a green checkmark so it doesn't look like a danger circle
     return `
       L.marker([${c.lat}, ${c.lng}], {
         icon: L.divIcon({
@@ -63,15 +68,32 @@ function buildMapHtml(lat: number, lng: number, reports: any[], checkins: any[])
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { attribution: '&copy; OpenStreetMap contributors' }).addTo(map);
     ${reportMarkers}
     ${checkinMarkers}
+
+    // --- STEP 3: Listen for when the map finishes moving/panning ---
+    map.on('moveend', function() {
+      const center = map.getCenter();
+      window.ReactNativeWebView.postMessage(JSON.stringify({ type: 'mapMoved', lat: center.lat, lng: center.lng }));
+    });
   </script>
 </body>
 </html>`;
 }
-// ----------------------------------------------------------
 
 export default function MapScreen({ navigation }: Props) {
   const [html, setHtml] = useState('');
   const [loading, setLoading] = useState(true);
+
+  // --- STEP 4: Area Score State & Debounce Ref ---
+  const [areaScore, setAreaScore] = useState<{ score: number | null; label: string; reportCount: number } | null>(null);
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const fetchAreaScore = async (lat: number, lng: number) => {
+    try {
+      const result = await apiRequest(`/reports/area-score?lat=${lat}&lng=${lng}&radius=1`);
+      setAreaScore(result);
+    } catch {}
+  };
+  // ------------------------------------------------
 
   const loadMap = useCallback(async () => {
     setLoading(true);
@@ -80,14 +102,15 @@ export default function MapScreen({ navigation }: Props) {
     const { coords } = await Location.getCurrentPositionAsync({});
     
     try {
-      // --- STEP 5: Fetch both reports and safety check-ins in parallel ---
       const [reports, checkins] = await Promise.all([
         apiRequest(`/reports/nearby?lat=${coords.latitude}&lng=${coords.longitude}&radius=5`).catch(() => []),
         apiRequest(`/safety-checkins/nearby?lat=${coords.latitude}&lng=${coords.longitude}&radius=5`).catch(() => [])
       ]);
       
       setHtml(buildMapHtml(coords.latitude, coords.longitude, reports, checkins));
-      // -------------------------------------------------------------------
+      
+      // Fetch initial score for user's starting location
+      fetchAreaScore(coords.latitude, coords.longitude);
     } catch {
       setHtml(buildMapHtml(coords.latitude, coords.longitude, [], []));
     }
@@ -102,6 +125,10 @@ export default function MapScreen({ navigation }: Props) {
       if (data.type === 'verify') {
         await apiRequest(`/reports/${data.id}/verify`, { method: 'POST' }).catch(() => {});
         loadMap();
+      } else if (data.type === 'mapMoved') {
+        // --- STEP 4: Debounce fetch when map settles ---
+        if (debounceRef.current) clearTimeout(debounceRef.current);
+        debounceRef.current = setTimeout(() => fetchAreaScore(data.lat, data.lng), 600);
       }
     } catch {}
   };
@@ -111,6 +138,17 @@ export default function MapScreen({ navigation }: Props) {
       {!loading && html ? (
         <WebView source={{ html }} style={styles.map} originWhitelist={['*']} onMessage={handleMessage} />
       ) : null}
+
+      {/* --- STEP 5: Score Overlay --- */}
+      {areaScore && (
+        <View style={[styles.scoreOverlay, getScoreColor(areaScore.score)]}>
+          <Text style={styles.scoreText}>
+            {areaScore.score !== null ? `Area Safety: ${areaScore.score}/5` : 'Not enough data'}
+          </Text>
+          <Text style={styles.scoreLabel}>{areaScore.label}</Text>
+        </View>
+      )}
+
       <TouchableOpacity style={styles.reportButton} onPress={() => navigation.navigate('ReportCategory')}>
         <Text style={styles.reportButtonText}>+ Report</Text>
       </TouchableOpacity>
@@ -121,6 +159,25 @@ export default function MapScreen({ navigation }: Props) {
 const styles = StyleSheet.create({
   container: { flex: 1 },
   map: { flex: 1 },
+  
+  // --- STEP 5: Overlay styles ---
+  scoreOverlay: { 
+    position: 'absolute', 
+    top: 16, 
+    left: 16, 
+    right: 16, 
+    borderRadius: 8, 
+    padding: 10, 
+    alignItems: 'center', 
+    elevation: 4,
+    shadowColor: '#000',
+    shadowOpacity: 0.15,
+    shadowRadius: 4,
+    shadowOffset: { width: 0, height: 2 }
+  },
+  scoreText: { color: '#fff', fontWeight: 'bold', fontSize: 15 },
+  scoreLabel: { color: '#fff', fontSize: 12, marginTop: 2 },
+
   reportButton: {
     position: 'absolute', bottom: 24, alignSelf: 'center',
     backgroundColor: '#6B21A8', paddingVertical: 14, paddingHorizontal: 28, borderRadius: 30, elevation: 4,
