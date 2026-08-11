@@ -1,7 +1,7 @@
 import * as Location from 'expo-location';
 import { ensureSmsPermission } from '../utils/sos';
 import { useEffect, useState, useCallback } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet, Alert } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import * as SecureStore from 'expo-secure-store';
@@ -9,9 +9,13 @@ import { RootStackParamList } from '../navigation/AppNavigator';
 import { useAuth } from '../context/AuthContext';
 import { apiRequest } from '../api/client';
 
-// NEW IMPORTS FOR SILENT MODE
+// SILENT MODE
 import { useSilentMode } from '../context/SilentModeContext';
 import { runSilentSos } from '../utils/silentSos';
+
+// --- STEP 4: Import Broadcast Check-in Utility ---
+import { broadcastSafeCheckin } from '../utils/safetyCheckin';
+// -------------------------------------------------
 
 type Props = NativeStackScreenProps<RootStackParamList, 'Home'>;
 
@@ -19,7 +23,6 @@ export default function HomeScreen({ navigation }: Props) {
   const { signOut } = useAuth();
   const [activeJourney, setActiveJourney] = useState<any>(null);
   
-  // 1. Grab the silent mode status from the Context
   const { silentModeEnabled } = useSilentMode();
 
   useFocusEffect(
@@ -33,32 +36,34 @@ export default function HomeScreen({ navigation }: Props) {
     }, [])
   );
 
-  // Prime permissions immediately so system dialogs don't pop up during a silent emergency.
   useEffect(() => {
     Location.requestForegroundPermissionsAsync();
     ensureSmsPermission();
   }, []);
 
-  // 2. The updated logic for when the button is tapped quickly
   const handleSosPress = () => {
     if (!silentModeEnabled) {
       navigation.navigate('SosCountdown');
     }
-    // If Silent Mode is on, doing nothing here prevents accidental loud alarms.
   };
 
-  // 3. The logic for when the button is held for 2 seconds
   const handleSosLongPress = () => {
     if (silentModeEnabled) {
-      runSilentSos(); // Not awaited — fires in the background silently
+      runSilentSos(); 
     }
   };
+
+  // --- STEP 4: Handle "I Am Safe" Button Press ---
+  const handleSafeCheckin = async () => {
+    const result = await broadcastSafeCheckin();
+    Alert.alert('Checked in', result.channel === 'failed' ? 'Could not broadcast right now.' : 'Marked as safe nearby.');
+  };
+  // -----------------------------------------------
 
   return (
     <View style={styles.container}>
       <Text style={styles.title}>Obhoy</Text>
       
-      {/* 4. The updated SOS button with onLongPress added */}
       <TouchableOpacity 
         style={styles.sosButton} 
         onPress={handleSosPress}
@@ -67,6 +72,12 @@ export default function HomeScreen({ navigation }: Props) {
       >
         <Text style={styles.sosText}>SOS</Text>
       </TouchableOpacity>
+
+      {/* --- STEP 4: Render the new green "I Am Safe" button --- */}
+      <TouchableOpacity style={styles.safeCheckinButton} onPress={handleSafeCheckin}>
+        <Text style={styles.safeCheckinText}>I Am Safe</Text>
+      </TouchableOpacity>
+      {/* ------------------------------------------------------- */}
 
       {activeJourney ? (
         <TouchableOpacity
@@ -116,9 +127,17 @@ export default function HomeScreen({ navigation }: Props) {
 
 const styles = StyleSheet.create({
   container: { flex: 1, padding: 24, justifyContent: 'center', alignItems: 'center' },
-  title: { fontSize: 28, fontWeight: 'bold', color: '#6B21A8', marginBottom: 32 },
-  sosButton: { width: 160, height: 160, borderRadius: 80, backgroundColor: '#DC2626', justifyContent: 'center', alignItems: 'center', marginBottom: 24, elevation: 4 },
+  title: { fontSize: 28, fontWeight: 'bold', color: '#6B21A8', marginBottom: 24 },
+  
+  // Note: I changed the SOS button marginBottom to 12 so the "I Am Safe" button sits closer to it visually
+  sosButton: { width: 160, height: 160, borderRadius: 80, backgroundColor: '#DC2626', justifyContent: 'center', alignItems: 'center', marginBottom: 12, elevation: 4 },
   sosText: { color: '#fff', fontSize: 32, fontWeight: 'bold' },
+  
+  // --- STEP 4: New Button Styles ---
+  safeCheckinButton: { backgroundColor: '#16A34A', borderRadius: 8, padding: 14, alignItems: 'center', width: '100%', marginBottom: 24 },
+  safeCheckinText: { color: '#fff', fontSize: 16, fontWeight: 'bold' },
+  // ---------------------------------
+
   journeyButton: { backgroundColor: '#D97706', borderRadius: 8, padding: 16, alignItems: 'center', width: '100%', marginBottom: 12 },
   button: { backgroundColor: '#6B21A8', borderRadius: 8, padding: 16, alignItems: 'center', width: '100%', marginBottom: 12 },
   buttonText: { color: '#fff', fontSize: 18, fontWeight: 'bold' },

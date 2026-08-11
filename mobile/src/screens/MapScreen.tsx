@@ -17,8 +17,9 @@ const CATEGORY_COLORS: Record<string, string> = {
   safe_spot: '#16A34A',
 };
 
-function buildMapHtml(lat: number, lng: number, reports: any[]) {
-  const markers = reports.map((r) => {
+// --- STEP 5: Add checkins parameter to the HTML builder ---
+function buildMapHtml(lat: number, lng: number, reports: any[], checkins: any[]) {
+  const reportMarkers = reports.map((r) => {
     const color = CATEGORY_COLORS[r.category] || '#6B7280';
     const ageMs = Date.now() - new Date(r.createdAt).getTime();
     const opacity = Math.max(0.35, 1 - ageMs / (90 * 24 * 60 * 60 * 1000));
@@ -27,13 +28,32 @@ function buildMapHtml(lat: number, lng: number, reports: any[]) {
     return `L.circleMarker([${r.lat}, ${r.lng}], {radius: ${radius}, color: '${color}', fillColor: '${color}', fillOpacity: ${opacity}}).addTo(map).bindPopup(${JSON.stringify(label)});`;
   }).join('\n');
 
+  // New distinct markers for the community safety check-ins
+  const checkinMarkers = checkins.map((c) => {
+    const label = `<b>Community Check-in</b><br/>Someone marked themselves safe here recently.`;
+    // Using a custom divIcon with a green checkmark so it doesn't look like a danger circle
+    return `
+      L.marker([${c.lat}, ${c.lng}], {
+        icon: L.divIcon({
+          html: '<div style="font-size: 20px; line-height: 20px; text-align: center; text-shadow: 0 0 3px rgba(255,255,255,0.8);">✅</div>',
+          className: 'safe-icon',
+          iconSize: [20, 20],
+          iconAnchor: [10, 10]
+        })
+      }).addTo(map).bindPopup(${JSON.stringify(label)});
+    `;
+  }).join('\n');
+
   return `
 <!DOCTYPE html>
 <html>
 <head>
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
-  <style>html, body, #map { height: 100%; margin: 0; }</style>
+  <style>
+    html, body, #map { height: 100%; margin: 0; }
+    .safe-icon { background: transparent; border: none; }
+  </style>
 </head>
 <body>
   <div id="map"></div>
@@ -41,11 +61,13 @@ function buildMapHtml(lat: number, lng: number, reports: any[]) {
   <script>
     const map = L.map('map').setView([${lat}, ${lng}], 15);
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { attribution: '&copy; OpenStreetMap contributors' }).addTo(map);
-    ${markers}
+    ${reportMarkers}
+    ${checkinMarkers}
   </script>
 </body>
 </html>`;
 }
+// ----------------------------------------------------------
 
 export default function MapScreen({ navigation }: Props) {
   const [html, setHtml] = useState('');
@@ -56,11 +78,18 @@ export default function MapScreen({ navigation }: Props) {
     const { status } = await Location.requestForegroundPermissionsAsync();
     if (status !== 'granted') { setLoading(false); return; }
     const { coords } = await Location.getCurrentPositionAsync({});
+    
     try {
-      const reports = await apiRequest(`/reports/nearby?lat=${coords.latitude}&lng=${coords.longitude}&radius=5`);
-      setHtml(buildMapHtml(coords.latitude, coords.longitude, reports));
+      // --- STEP 5: Fetch both reports and safety check-ins in parallel ---
+      const [reports, checkins] = await Promise.all([
+        apiRequest(`/reports/nearby?lat=${coords.latitude}&lng=${coords.longitude}&radius=5`).catch(() => []),
+        apiRequest(`/safety-checkins/nearby?lat=${coords.latitude}&lng=${coords.longitude}&radius=5`).catch(() => [])
+      ]);
+      
+      setHtml(buildMapHtml(coords.latitude, coords.longitude, reports, checkins));
+      // -------------------------------------------------------------------
     } catch {
-      setHtml(buildMapHtml(coords.latitude, coords.longitude, []));
+      setHtml(buildMapHtml(coords.latitude, coords.longitude, [], []));
     }
     setLoading(false);
   }, []);
