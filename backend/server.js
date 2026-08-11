@@ -11,7 +11,8 @@ const journeyRoutes = require('./routes/journey');
 const internalRoutes = require('./routes/internal');
 const reportsRoutes = require('./routes/reports');
 const evidenceRoutes = require('./routes/evidence'); 
-const safetyCheckinsRoutes = require('./routes/safetyCheckins'); // <--- ADDED for Obhoy_27
+const safetyCheckinsRoutes = require('./routes/safetyCheckins'); 
+const communityAlertRoutes = require('./routes/communityAlerts'); // <--- ADDED for Obhoy_29
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -32,7 +33,8 @@ app.use('/journey', journeyRoutes);
 app.use('/internal', internalRoutes);
 app.use('/reports', reportsRoutes);
 app.use('/evidence', evidenceRoutes); 
-app.use('/safety-checkins', safetyCheckinsRoutes); // <--- ADDED for Obhoy_27
+app.use('/safety-checkins', safetyCheckinsRoutes); 
+app.use('/community-alerts', communityAlertRoutes); // <--- ADDED for Obhoy_29
 
 mongoose.connect(process.env.MONGODB_URI)
   .then(() => console.log('MongoDB connected'))
