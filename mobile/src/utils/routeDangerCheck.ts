@@ -23,24 +23,25 @@ export async function checkRouteDanger(
   lng: number
 ): Promise<{ shouldWarn: boolean; reports: NearbyReport[] }> {
   try {
-    // Fetch reports within 500m of the user's current coordinates
-    const reports: NearbyReport[] = await apiRequest(
-      `/reports/nearby?lat=${lat}&lng=${lng}&radius=${CHECK_RADIUS_KM}`
-    );
-    
-    // Filter out non-danger reports like 'poor_lighting' or 'safe_spot'
+    // --- STEP 4: Fetch historical reports AND live community alerts in parallel ---
+    const [reports, alerts]: [NearbyReport[], unknown[]] = await Promise.all([
+      apiRequest(`/reports/nearby?lat=${lat}&lng=${lng}&radius=${CHECK_RADIUS_KM}`),
+      apiRequest(`/community-alerts/nearby?lat=${lat}&lng=${lng}&radius=${CHECK_RADIUS_KM}`),
+    ]);
+
     const dangerReports = reports.filter((r) => DANGER_CATEGORIES.includes(r.category));
-    
-    // Count how many of these danger reports have been verified by other users
     const verifiedDangerCount = dangerReports.filter((r) => r.verifiedCount > 0).length;
     
-    // Determine if we hit either the raw report threshold (4) or the verified threshold (2)
+    // Even ONE live community alert in the last 45 mins triggers a route warning
+    const hasLiveAlert = alerts.length > 0;
+    
     const shouldWarn =
-      dangerReports.length >= REPORT_COUNT_THRESHOLD || verifiedDangerCount >= VERIFIED_COUNT_THRESHOLD;
+      hasLiveAlert ||
+      dangerReports.length >= REPORT_COUNT_THRESHOLD ||
+      verifiedDangerCount >= VERIFIED_COUNT_THRESHOLD;
       
     return { shouldWarn, reports: dangerReports };
   } catch {
-    // If the API fails (e.g., bad network), fail silently so we don't spam the user with errors
     return { shouldWarn: false, reports: [] };
   }
 }
