@@ -20,11 +20,17 @@ const journeySessionSchema = new mongoose.Schema({
     status: { type: String, enum: ['sent', 'failed'], default: 'sent' },
   }],
   
-  // New fields for Geofence Safety Alerts
+  // Geofence Safety Alerts
   geofenceEnabled: { type: Boolean, default: false },
   geofenceRadiusMeters: { type: Number, default: null },
   geofenceCenter: { lat: Number, lng: Number },
   geofenceAlerted: { type: Boolean, default: false },
+
+  // New fields for Two-Way Check-in Confirmation (Obhoy_25)
+  pendingCheckinRequest: { type: Boolean, default: false },
+  pendingCheckinRequestedAt: { type: Date, default: null },
+  lastTwoWayResponse: { type: String, enum: ['safe', 'help', null], default: null },
+  lastTwoWayResponseAt: { type: Date, default: null },
 
 }, { timestamps: true });
 

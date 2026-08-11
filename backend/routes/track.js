@@ -1,7 +1,7 @@
 const express = require('express');
 const SosEvent = require('../models/SosEvent');
 const JourneySession = require('../models/JourneySession');
-const EvidenceSession = require('../models/EvidenceSession'); // <--- ADDED
+const EvidenceSession = require('../models/EvidenceSession');
 
 const router = express.Router();
 
@@ -19,14 +19,14 @@ router.get('/:token', async (req, res) => {
       location: journey.currentLocation,
       updatedAt: journey.currentLocation?.updatedAt,
       destinationLabel: journey.destinationLabel,
-      // NEW: Included geofence data for Step 4
       geofence: journey.geofenceEnabled
         ? { center: journey.geofenceCenter, radiusMeters: journey.geofenceRadiusMeters, alerted: journey.geofenceAlerted }
         : null,
+      // --- STEP 3: Surface the response for the web tracker ---
+      lastTwoWayResponse: journey.lastTwoWayResponse,
     });
   }
   
-  // <--- ADDED EVIDENCE CHECK
   const evidence = await EvidenceSession.findOne({ trackingToken: req.params.token });
   if (evidence) {
     return res.json({ kind: 'evidence', status: evidence.status, location: evidence.location, updatedAt: evidence.location?.updatedAt });
@@ -34,5 +34,22 @@ router.get('/:token', async (req, res) => {
 
   return res.status(404).json({ error: 'Link not found or expired.' });
 });
+
+// --- STEP 3: The contact-facing request route ---
+router.post('/:token/request-checkin', async (req, res) => {
+  const journey = await JourneySession.findOne({ trackingToken: req.params.token, status: 'active' });
+  if (!journey) return res.status(404).json({ error: 'Journey not found or not active.' });
+
+  const cooldownMs = 2 * 60 * 1000;
+  if (journey.pendingCheckinRequestedAt && Date.now() - journey.pendingCheckinRequestedAt.getTime() < cooldownMs) {
+    return res.status(429).json({ error: 'A request was already sent recently.' });
+  }
+
+  journey.pendingCheckinRequest = true;
+  journey.pendingCheckinRequestedAt = new Date();
+  await journey.save();
+  res.json({ requested: true });
+});
+// ------------------------------------------------
 
 module.exports = router;

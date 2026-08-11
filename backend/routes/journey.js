@@ -1,15 +1,15 @@
 const express = require('express');
 const crypto = require('crypto');
 const JourneySession = require('../models/JourneySession');
-const User = require('../models/User'); // NEW: Needed for Step 3 alerts
-const TrustedContact = require('../models/TrustedContact'); // NEW: Needed for Step 3 alerts
-const { sendSms } = require('../utils/smsGateway'); // NEW: Needed for Step 3 alerts (Verify this path matches your project structure!)
+const User = require('../models/User'); 
+const TrustedContact = require('../models/TrustedContact'); 
+const { sendSms } = require('../utils/smsGateway'); 
 const authMiddleware = require('../middleware/authMiddleware');
 
 const router = express.Router();
 router.use(authMiddleware);
 
-// NEW: Helper function to calculate distance in meters (Step 3)
+// Helper function to calculate distance in meters
 function distanceMeters(lat1, lng1, lat2, lng2) {
   const R = 6371000;
   const dLat = (lat2 - lat1) * Math.PI / 180;
@@ -21,7 +21,6 @@ function distanceMeters(lat1, lng1, lat2, lng2) {
 
 router.post('/start', async (req, res) => {
   try {
-    // Added geofenceEnabled and geofenceRadiusMeters to extracted body fields (Step 2)
     const { destinationLabel, checkinIntervalMinutes, lat, lng, accuracy, geofenceEnabled, geofenceRadiusMeters } = req.body;
     const trackingToken = crypto.randomBytes(16).toString('hex');
     
@@ -32,13 +31,26 @@ router.post('/start', async (req, res) => {
       checkinIntervalMinutes: checkinIntervalMinutes || 30,
       lastCheckinAt: new Date(),
       currentLocation: lat && lng ? { lat, lng, accuracy, updatedAt: new Date() } : undefined,
-      // NEW: Set geofence variables on creation (Step 2)
       geofenceEnabled: !!geofenceEnabled,
       geofenceRadiusMeters: geofenceEnabled ? geofenceRadiusMeters : null,
       geofenceCenter: geofenceEnabled && typeof lat === 'number' ? { lat, lng } : undefined,
     });
     
+    // --- STEP 2: Send the tracker link at journey start ---
     const trackUrl = `${process.env.WEB_TRACKER_URL}/${trackingToken}`;
+    const contacts = await TrustedContact.find({ userId: req.userId });
+    const user = await User.findById(req.userId);
+    const startMessage = `Obhoy: ${user.phone} started a journey${destinationLabel ? ' to ' + destinationLabel : ''}. Track: ${trackUrl}`;
+    
+    for (const contact of contacts) {
+      try {
+        await sendSms(contact.phone, startMessage);
+      } catch (err) {
+        console.error('Journey-start SMS failed for', contact.phone, err.message);
+      }
+    }
+    // ------------------------------------------------------
+
     res.json({ journeyId: journey._id, trackingToken, trackUrl, checkinIntervalMinutes: journey.checkinIntervalMinutes });
   } catch (err) {
     console.error(err);
@@ -53,7 +65,7 @@ router.patch('/:id/location', async (req, res) => {
   
   journey.currentLocation = { lat, lng, accuracy, updatedAt: new Date() };
 
-  // NEW: Geofence checking logic (Step 3)
+  // Geofence checking logic
   let insideGeofence = null;
   if (journey.geofenceEnabled && journey.geofenceCenter) {
     const distance = distanceMeters(journey.geofenceCenter.lat, journey.geofenceCenter.lng, lat, lng);
@@ -74,15 +86,47 @@ router.patch('/:id/location', async (req, res) => {
         );
       });
     } else if (insideGeofence && journey.geofenceAlerted && distance <= journey.geofenceRadiusMeters - resetMarginMeters) {
-      // User is comfortably back inside the safe zone, reset the alert flag
       journey.geofenceAlerted = false;
     }
   }
 
   await journey.save();
-  // We return insideGeofence to the mobile app so it knows if it needs to show a banner
-  res.json({ updated: true, insideGeofence });
+  
+  // --- STEP 5: Surface the pending flag on the existing poll ---
+  res.json({ updated: true, insideGeofence, pendingCheckinRequest: journey.pendingCheckinRequest });
 });
+
+// --- STEP 4: The traveler's response route ---
+router.patch('/:id/checkin-response', async (req, res) => {
+  const { response } = req.body; // 'safe' or 'help'
+  const journey = await JourneySession.findOne({ _id: req.params.id, userId: req.userId, status: 'active' });
+  if (!journey) return res.status(404).json({ error: 'No active journey found.' });
+
+  journey.pendingCheckinRequest = false;
+  journey.lastTwoWayResponse = response;
+  journey.lastTwoWayResponseAt = new Date();
+
+  if (response === 'safe') {
+    journey.lastCheckinAt = new Date();
+    await journey.save();
+    return res.json({ recorded: true });
+  }
+
+  const user = await User.findById(req.userId);
+  const contacts = await TrustedContact.find({ userId: req.userId });
+  const trackUrl = `${process.env.WEB_TRACKER_URL}/${journey.trackingToken}`;
+  const message = `Obhoy Alert: ${user.phone} responded HELP to a safety check. Track: ${trackUrl}`;
+  for (const contact of contacts) {
+    try {
+      await sendSms(contact.phone, message);
+    } catch (err) {
+      console.error('Two-way help alert SMS failed for', contact.phone, err.message);
+    }
+  }
+  await journey.save();
+  res.json({ recorded: true, escalated: true });
+});
+// ---------------------------------------------
 
 router.patch('/:id/checkin', async (req, res) => {
   const journey = await JourneySession.findOneAndUpdate(
