@@ -1,25 +1,26 @@
 import * as Location from 'expo-location';
 import { ensureSmsPermission } from '../utils/sos';
 import { useEffect, useState, useCallback } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, Alert } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet, Alert, ScrollView } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import * as SecureStore from 'expo-secure-store';
 import { RootStackParamList } from '../navigation/AppNavigator';
 import { useAuth } from '../context/AuthContext';
 import { apiRequest } from '../api/client';
+import { t, useLanguage } from '../i18n';
 
 // SILENT MODE
 import { useSilentMode } from '../context/SilentModeContext';
 import { runSilentSos } from '../utils/silentSos';
 
-// --- STEP 4: Import Broadcast Check-in Utility ---
+// Broadcast Check-in Utility
 import { broadcastSafeCheckin } from '../utils/safetyCheckin';
-// -------------------------------------------------
 
 type Props = NativeStackScreenProps<RootStackParamList, 'Home'>;
 
 export default function HomeScreen({ navigation }: Props) {
+  useLanguage();
   const { signOut } = useAuth();
   const [activeJourney, setActiveJourney] = useState<any>(null);
   
@@ -53,39 +54,30 @@ export default function HomeScreen({ navigation }: Props) {
     }
   };
 
-  // --- STEP 4: Handle "I Am Safe" Button Press ---
   const handleSafeCheckin = async () => {
     const result = await broadcastSafeCheckin();
-    Alert.alert('Checked in', result.channel === 'failed' ? 'Could not broadcast right now.' : 'Marked as safe nearby.');
+    Alert.alert(
+      t('home.i_am_safe'),
+      result.channel === 'failed' ? t('sos.channel_failed') : t('msg.safe_checkin')
+    );
   };
-  // -----------------------------------------------
 
   return (
-    <View style={styles.container}>
+    <ScrollView contentContainerStyle={styles.container}>
       <Text style={styles.title}>Obhoy</Text>
 
-      {/* --- TEMPORARY STEP 2 FONT RENDERING TEST --- */}
-      <View style={{ padding: 12, backgroundColor: '#EDE9FE', borderRadius: 8, marginBottom: 12, width: '100%', alignItems: 'center' }}>
-        <Text style={{ fontSize: 15, color: '#111827' }}>অভয় — নিরাপদ থাকুন, সংযুক্ত থাকুন</Text>
-        <Text style={{ fontSize: 16, fontWeight: 'bold', color: '#111827', marginVertical: 4 }}>আমি নিরাপদে পৌঁছেছি</Text>
-        <Text style={{ fontSize: 22, color: '#111827' }}>ক্ষ ত্র জ্ঞ ঙ্ক ষ্ট হৃ রূ</Text>
-      </View>
-      {/* ------------------------------------------- */}
-      
       <TouchableOpacity 
         style={styles.sosButton} 
         onPress={handleSosPress}
         onLongPress={handleSosLongPress}
         delayLongPress={2000}
       >
-        <Text style={styles.sosText}>SOS</Text>
+        <Text style={styles.sosText}>{t('home.sos')}</Text>
       </TouchableOpacity>
 
-      {/* --- STEP 4: Render the new green "I Am Safe" button --- */}
       <TouchableOpacity style={styles.safeCheckinButton} onPress={handleSafeCheckin}>
-        <Text style={styles.safeCheckinText}>I Am Safe</Text>
+        <Text style={styles.safeCheckinText}>{t('home.i_am_safe')}</Text>
       </TouchableOpacity>
-      {/* ------------------------------------------------------- */}
 
       {activeJourney ? (
         <TouchableOpacity
@@ -95,30 +87,36 @@ export default function HomeScreen({ navigation }: Props) {
             checkinIntervalMinutes: activeJourney.checkinIntervalMinutes,
           })}
         >
-          <Text style={styles.buttonText}>View Active Journey</Text>
+          <Text style={styles.buttonText}>{t('home.journey')}</Text>
         </TouchableOpacity>
       ) : (
         <TouchableOpacity style={styles.button} onPress={() => navigation.navigate('JourneySetup')}>
-          <Text style={styles.buttonText}>Start Journey</Text>
+          <Text style={styles.buttonText}>{t('journey.start')}</Text>
         </TouchableOpacity>
       )}
+
       <TouchableOpacity style={styles.button} onPress={() => navigation.navigate('ContactsList')}>
-        <Text style={styles.buttonText}>Trusted Contacts</Text>
+        <Text style={styles.buttonText}>{t('home.contacts')}</Text>
       </TouchableOpacity>
+
       <TouchableOpacity style={styles.button} onPress={() => navigation.navigate('Directory')}>
-        <Text style={styles.buttonText}>Emergency Directory</Text>
+        <Text style={styles.buttonText}>{t('home.directory')}</Text>
       </TouchableOpacity>
+
       <TouchableOpacity style={styles.button} onPress={() => navigation.navigate('Map')}>
-        <Text style={styles.buttonText}>Unsafe Zone Map</Text>
+        <Text style={styles.buttonText}>{t('home.map')}</Text>
       </TouchableOpacity>
+
       <TouchableOpacity style={styles.button} onPress={() => navigation.navigate('NearbyAlerts')}>
-        <Text style={styles.buttonText}>Nearby Alerts</Text>
+        <Text style={styles.buttonText}>{t('home.nearby_alerts')}</Text>
       </TouchableOpacity>
+
       <TouchableOpacity style={styles.button} onPress={() => navigation.navigate('Settings')}>
-        <Text style={styles.buttonText}>Settings</Text>
+        <Text style={styles.buttonText}>{t('home.settings')}</Text>
       </TouchableOpacity>
+
       <TouchableOpacity style={styles.signOutButton} onPress={signOut}>
-        <Text style={styles.signOutText}>Log out</Text>
+        <Text style={styles.signOutText}>{t('auth.logout')}</Text>
       </TouchableOpacity>
 
       {/* DISCREET EVIDENCE CAPTURE BUTTON */}
@@ -129,24 +127,21 @@ export default function HomeScreen({ navigation }: Props) {
       >
         <Text style={styles.evidenceButtonText}>⏺</Text>
       </TouchableOpacity>
-    </View>
+    </ScrollView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, padding: 24, justifyContent: 'center', alignItems: 'center' },
-  title: { fontSize: 28, fontWeight: 'bold', color: '#6B21A8', marginBottom: 24 },
-  
+  container: { padding: 24, justifyContent: 'center', alignItems: 'center' },
+  title: { fontSize: 28, fontWeight: 'bold', color: '#6B21A8', marginBottom: 20 },
   sosButton: { width: 160, height: 160, borderRadius: 80, backgroundColor: '#DC2626', justifyContent: 'center', alignItems: 'center', marginBottom: 12, elevation: 4 },
   sosText: { color: '#fff', fontSize: 32, fontWeight: 'bold' },
-  
-  safeCheckinButton: { backgroundColor: '#16A34A', borderRadius: 8, padding: 14, alignItems: 'center', width: '100%', marginBottom: 24 },
+  safeCheckinButton: { backgroundColor: '#16A34A', borderRadius: 8, padding: 14, minHeight: 48, alignItems: 'center', width: '100%', marginBottom: 16 },
   safeCheckinText: { color: '#fff', fontSize: 16, fontWeight: 'bold' },
-
-  journeyButton: { backgroundColor: '#D97706', borderRadius: 8, padding: 16, alignItems: 'center', width: '100%', marginBottom: 12 },
-  button: { backgroundColor: '#6B21A8', borderRadius: 8, padding: 16, alignItems: 'center', width: '100%', marginBottom: 12 },
+  journeyButton: { backgroundColor: '#D97706', borderRadius: 8, padding: 16, minHeight: 52, alignItems: 'center', width: '100%', marginBottom: 12 },
+  button: { backgroundColor: '#6B21A8', borderRadius: 8, padding: 16, minHeight: 52, alignItems: 'center', width: '100%', marginBottom: 12 },
   buttonText: { color: '#fff', fontSize: 18, fontWeight: 'bold' },
-  signOutButton: { marginTop: 12, alignItems: 'center' },
+  signOutButton: { marginTop: 12, marginBottom: 40, alignItems: 'center' },
   signOutText: { color: '#DC2626', fontSize: 15 },
   evidenceButton: { position: 'absolute', bottom: 24, right: 24, width: 44, height: 44, borderRadius: 22, backgroundColor: '#EDE9FE', justifyContent: 'center', alignItems: 'center' },
   evidenceButtonText: { fontSize: 16, color: '#6B7280' },

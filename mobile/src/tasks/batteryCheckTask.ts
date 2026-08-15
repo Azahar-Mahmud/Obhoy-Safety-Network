@@ -7,12 +7,16 @@ import {
   clearEpisodeFired,
 } from '../utils/batteryAlertSettings';
 import { runSilentSos } from '../utils/silentSos';
+import { loadLanguage, t } from '../i18n'; // <--- ADDED
 
 export const BATTERY_CHECK_TASK = 'obhoy-battery-check';
-const RESET_MARGIN = 10; // percentage points above threshold before re-arming
+const RESET_MARGIN = 10;
 
 export default async function batteryCheckTaskHandler(): Promise<BackgroundTask.BackgroundTaskResult> {
   try {
+    // MUST load language first because background task runs outside React tree
+    await loadLanguage();
+
     const settings = await getBatteryAlertSettings();
     if (!settings.enabled) {
       return BackgroundTask.BackgroundTaskResult.Success;
@@ -26,7 +30,6 @@ export default async function batteryCheckTaskHandler(): Promise<BackgroundTask.
     const percent = Math.round(level * 100);
     const state = await Battery.getBatteryStateAsync();
     
-    // RESTORED: Now correctly ignores both CHARGING and FULL states
     const isChargingOrFull =
       state === Battery.BatteryState.CHARGING || state === Battery.BatteryState.FULL;
 
@@ -41,8 +44,8 @@ export default async function batteryCheckTaskHandler(): Promise<BackgroundTask.
       
       await Notifications.scheduleNotificationAsync({
         content: {
-          title: 'Obhoy Auto-Alert',
-          body: `Battery reached ${percent}% — your location was automatically sent to your trusted contacts.`,
+          title: t('notif.battery_title'),
+          body: t('notif.battery_body'),
         },
         trigger: null,
       });

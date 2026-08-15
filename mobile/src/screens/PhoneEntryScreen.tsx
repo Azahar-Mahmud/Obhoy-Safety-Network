@@ -3,10 +3,12 @@ import { View, Text, TextInput, TouchableOpacity, StyleSheet, ActivityIndicator 
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../navigation/AppNavigator';
 import { apiRequest } from '../api/client';
+import { t, useLanguage } from '../i18n';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'PhoneEntry'>;
 
 export default function PhoneEntryScreen({ navigation }: Props) {
+  useLanguage();
   const [phone, setPhone] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -24,7 +26,7 @@ export default function PhoneEntryScreen({ navigation }: Props) {
       if (err.message?.includes('already registered')) {
         navigation.navigate('LoginPin', { phone });
       } else {
-        setError(err.message || 'Something went wrong.');
+        setError(err.message || t('common.error'));
       }
     } finally {
       setLoading(false);
@@ -33,17 +35,17 @@ export default function PhoneEntryScreen({ navigation }: Props) {
 
   return (
     <View style={styles.container}>
-      <Text style={styles.title}>Enter your phone number</Text>
+      <Text style={styles.title}>{t('auth.phone_title')}</Text>
       <TextInput
         style={styles.input}
-        placeholder="01XXXXXXXXX"
+        placeholder={t('auth.phone_placeholder')}
         keyboardType="phone-pad"
         value={phone}
         onChangeText={setPhone}
       />
       {error ? <Text style={styles.error}>{error}</Text> : null}
       <TouchableOpacity style={styles.button} onPress={handleContinue} disabled={loading}>
-        {loading ? <ActivityIndicator color="#fff" /> : <Text style={styles.buttonText}>Continue</Text>}
+        {loading ? <ActivityIndicator color="#fff" /> : <Text style={styles.buttonText}>{t('auth.continue')}</Text>}
       </TouchableOpacity>
     </View>
   );
@@ -52,8 +54,8 @@ export default function PhoneEntryScreen({ navigation }: Props) {
 const styles = StyleSheet.create({
   container: { flex: 1, padding: 24, justifyContent: 'center' },
   title: { fontSize: 20, fontWeight: 'bold', marginBottom: 16, color: '#111827' },
-  input: { borderWidth: 1, borderColor: '#6B7280', borderRadius: 8, padding: 14, fontSize: 16, marginBottom: 12 },
-  button: { backgroundColor: '#6B21A8', borderRadius: 8, padding: 16, alignItems: 'center' },
+  input: { borderWidth: 1, borderColor: '#6B7280', borderRadius: 8, padding: 14, fontSize: 16, marginBottom: 12, minHeight: 48 },
+  button: { backgroundColor: '#6B21A8', borderRadius: 8, padding: 16, minHeight: 52, alignItems: 'center', justifyContent: 'center' },
   buttonText: { color: '#fff', fontSize: 18, fontWeight: 'bold' },
   error: { color: '#DC2626', marginBottom: 12 },
 });

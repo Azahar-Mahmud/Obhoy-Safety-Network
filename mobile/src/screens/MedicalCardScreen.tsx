@@ -2,51 +2,48 @@ import React, { useEffect, useState } from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 import * as SecureStore from 'expo-secure-store';
 import { showOverLockScreen, hideOverLockScreen } from '../../modules/lock-screen-display/src';
+import { t, useLanguage } from '../i18n';
 
 const MEDICAL_CARD_KEY = 'obhoy_medical_card';
-const CONTACTS_CACHE_KEY = 'obhoy_contacts'; // Already populated in the background by your app
+const CONTACTS_CACHE_KEY = 'obhoy_contacts';
 
 type MedicalCard = { bloodType?: string; allergies?: string; notes?: string };
 type Contact = { name: string; phone: string };
 
 export default function MedicalCardScreen() {
+  useLanguage();
   const [card, setCard] = useState<MedicalCard>({});
   const [contacts, setContacts] = useState<Contact[]>([]);
 
   useEffect(() => {
-    // 1. Tell Android to push this screen over the lock screen!
     showOverLockScreen();
-
-    // 2. Fetch the offline data (this works even with zero internet)
     SecureStore.getItemAsync(MEDICAL_CARD_KEY).then((v) => v && setCard(JSON.parse(v)));
     SecureStore.getItemAsync(CONTACTS_CACHE_KEY).then((v) => v && setContacts(JSON.parse(v)));
-    
-    // 3. Clean up the lock screen override when this screen is destroyed
     return () => hideOverLockScreen();
   }, []);
 
   return (
     <View style={styles.container}>
-      <Text style={styles.header}>MEDICAL EMERGENCY CARD</Text>
+      <Text style={styles.header}>{t('medical.title')}</Text>
       
       <View style={styles.section}>
-        <Text style={styles.label}>Blood Type</Text>
-        <Text style={styles.value}>{card.bloodType || 'Not provided'}</Text>
+        <Text style={styles.label}>{t('medical.blood_type')}</Text>
+        <Text style={styles.value}>{card.bloodType || '-'}</Text>
       </View>
       
       <View style={styles.section}>
-        <Text style={styles.label}>Allergies</Text>
-        <Text style={styles.value}>{card.allergies || 'None listed'}</Text>
+        <Text style={styles.label}>{t('medical.allergies')}</Text>
+        <Text style={styles.value}>{card.allergies || '-'}</Text>
       </View>
       
       <View style={styles.section}>
-        <Text style={styles.label}>Notes</Text>
-        <Text style={styles.value}>{card.notes || 'None'}</Text>
+        <Text style={styles.label}>{t('medical.notes')}</Text>
+        <Text style={styles.value}>{card.notes || '-'}</Text>
       </View>
       
       <View style={styles.section}>
-        <Text style={styles.label}>Emergency Contacts</Text>
-        {contacts.length === 0 && <Text style={styles.value}>None saved</Text>}
+        <Text style={styles.label}>{t('medical.contacts')}</Text>
+        {contacts.length === 0 && <Text style={styles.value}>-</Text>}
         {contacts.map((c, i) => (
           <Text key={i} style={styles.value}>{c.name} — {c.phone}</Text>
         ))}

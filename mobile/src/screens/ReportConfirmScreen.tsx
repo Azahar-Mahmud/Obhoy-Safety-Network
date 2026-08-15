@@ -4,6 +4,7 @@ import { WebView } from 'react-native-webview';
 import * as Location from 'expo-location';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../navigation/AppNavigator';
+import { t, useLanguage } from '../i18n';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'ReportConfirm'>;
 
@@ -33,6 +34,7 @@ function buildPickerHtml(lat: number, lng: number) {
 }
 
 export default function ReportConfirmScreen({ route, navigation }: Props) {
+  useLanguage();
   const { category } = route.params;
   const [coords, setCoords] = useState<{ lat: number; lng: number } | null>(null);
   const [html, setHtml] = useState('');
@@ -57,18 +59,18 @@ export default function ReportConfirmScreen({ route, navigation }: Props) {
 
   return (
     <View style={styles.container}>
-      <Text style={styles.title}>Confirm the location</Text>
-      <Text style={styles.subtitle}>Drag the pin if it's not quite right</Text>
+      <Text style={styles.title}>{t('report.confirm_location')}</Text>
+      <Text style={styles.subtitle}>{t('report.drag_hint')}</Text>
       <View style={styles.mapWrap}>
         {html ? <WebView source={{ html }} originWhitelist={['*']} onMessage={handleMessage} /> : null}
       </View>
-      <Text style={styles.timestamp}>Reported: {new Date().toLocaleString()}</Text>
+      <Text style={styles.timestamp}>{t('sos.last_alert_at', { time: new Date().toLocaleTimeString() })}</Text>
       <TouchableOpacity
         style={styles.button}
         disabled={!coords}
         onPress={() => navigation.navigate('ReportDescription', { category, lat: coords!.lat, lng: coords!.lng })}
       >
-        <Text style={styles.buttonText}>✓ Confirm</Text>
+        <Text style={styles.buttonText}>✓ {t('common.confirm')}</Text>
       </TouchableOpacity>
     </View>
   );
@@ -80,6 +82,6 @@ const styles = StyleSheet.create({
   subtitle: { fontSize: 14, color: '#6B7280', textAlign: 'center', marginBottom: 12 },
   mapWrap: { flex: 1, borderRadius: 12, overflow: 'hidden', marginBottom: 12 },
   timestamp: { textAlign: 'center', color: '#6B7280', marginBottom: 16 },
-  button: { backgroundColor: '#16A34A', borderRadius: 8, padding: 16, alignItems: 'center' },
+  button: { backgroundColor: '#16A34A', borderRadius: 8, padding: 16, minHeight: 52, alignItems: 'center', justifyContent: 'center' },
   buttonText: { color: '#fff', fontSize: 18, fontWeight: 'bold' },
 });

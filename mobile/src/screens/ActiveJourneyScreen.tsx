@@ -7,7 +7,8 @@ import * as Notifications from 'expo-notifications';
 import { RootStackParamList } from '../navigation/AppNavigator';
 import { apiRequest } from '../api/client';
 import { checkRouteDanger, NearbyReport } from '../utils/routeDangerCheck';
-import ScheduledCheckinView from './ScheduledCheckinView'; // --- STEP 8: Import new view ---
+import ScheduledCheckinView from './ScheduledCheckinView';
+import { t, useLanguage } from '../i18n';
 
 Notifications.setNotificationHandler({
   handleNotification: async () => ({
@@ -22,26 +23,22 @@ type Props = NativeStackScreenProps<RootStackParamList, 'ActiveJourney'>;
 const LOCATION_UPDATE_MS = 60000;
 
 export default function ActiveJourneyScreen({ route, navigation }: Props) {
-  // --- STEP 8: Extract mode and deadline ---
+  useLanguage();
   const { journeyId, checkinIntervalMinutes, mode, scheduledDeadline } = route.params;
 
-  // Branch the screen if it's a scheduled check-in (MUST be above all hooks!)
   if (mode === 'scheduled') {
     return <ScheduledCheckinView journeyId={journeyId} deadline={scheduledDeadline!} navigation={navigation} />;
   }
-  // -----------------------------------------
 
   const { discreetModeEnabled } = useDiscreetMode();
   
   const [lastCheckin, setLastCheckin] = useState(new Date());
   const [insideGeofence, setInsideGeofence] = useState<boolean | null>(null);
   
-  // Danger Warning State & Cooldown
   const [dangerWarning, setDangerWarning] = useState<NearbyReport[] | null>(null);
   const lastWarnedRef = useRef<number>(0);
-  const WARNING_COOLDOWN_MS = 10 * 60 * 1000; // 10 minutes
+  const WARNING_COOLDOWN_MS = 10 * 60 * 1000;
 
-  // State for Two-Way Check-in
   const [checkinRequested, setCheckinRequested] = useState(false);
 
   const notificationIdRef = useRef<string | null>(null);
@@ -52,9 +49,10 @@ export default function ActiveJourneyScreen({ route, navigation }: Props) {
       await Notifications.cancelScheduledNotificationAsync(notificationIdRef.current);
     }
 
-    const content = discreetModeEnabled
-      ? { title: 'Reminder', body: 'You have an open item to check.' }
-      : { title: 'Obhoy Check-in', body: "Open the app to confirm you're okay." };
+    const content = {
+      title: discreetModeEnabled ? t('notif.checkin_title_discreet') : t('notif.checkin_title'),
+      body: discreetModeEnabled ? t('notif.checkin_body_discreet') : t('notif.checkin_body'),
+    };
 
     notificationIdRef.current = await Notifications.scheduleNotificationAsync({
       content,
@@ -72,17 +70,13 @@ export default function ActiveJourneyScreen({ route, navigation }: Props) {
       try {
         const { coords } = await Location.getCurrentPositionAsync({});
         
-        // 1. Send location to backend and check geofence/checkin requests
         const result = await apiRequest(`/journey/${journeyId}/location`, {
           method: 'PATCH',
           body: JSON.stringify({ lat: coords.latitude, lng: coords.longitude, accuracy: coords.accuracy }),
         });
         setInsideGeofence(result.insideGeofence);
-        
-        // Capture the pending request flag
         setCheckinRequested(!!result.pendingCheckinRequest);
 
-        // 2. Check for Route Danger nearby
         const now = Date.now();
         if (now - lastWarnedRef.current > WARNING_COOLDOWN_MS) {
           const { shouldWarn, reports } = await checkRouteDanger(coords.latitude, coords.longitude);
@@ -105,7 +99,7 @@ export default function ActiveJourneyScreen({ route, navigation }: Props) {
     await apiRequest(`/journey/${journeyId}/checkin`, { method: 'PATCH' });
     setLastCheckin(new Date());
     scheduleReminder(checkinIntervalMinutes);
-    Alert.alert('Checked in', "Great, we'll check again later.");
+    Alert.alert(t('journey.im_safe'), t('msg.safe_checkin'));
   };
 
   const handleArrive = async () => {
@@ -133,36 +127,36 @@ export default function ActiveJourneyScreen({ route, navigation }: Props) {
     <View style={styles.container}>
       {insideGeofence === false && (
         <View style={styles.geofenceBanner}>
-          <Text style={styles.geofenceBannerText}>You've left your safe zone — your contacts have been notified.</Text>
+          <Text style={styles.geofenceBannerText}>{t('journey.geofence_warning')}</Text>
         </View>
       )}
       
-      <Text style={styles.title}>Journey Active</Text>
-      <Text style={styles.subtitle}>Last checked in: {lastCheckin.toLocaleTimeString()}</Text>
+      <Text style={styles.title}>{t('home.journey')}</Text>
+      <Text style={styles.subtitle}>{t('sos.last_alert_at', { time: lastCheckin.toLocaleTimeString() })}</Text>
       
       <TouchableOpacity style={styles.safeButton} onPress={handleArrive}>
-        <Text style={styles.safeText}>I Arrived Safely</Text>
+        <Text style={styles.safeText}>{t('journey.arrived')}</Text>
       </TouchableOpacity>
       
       <TouchableOpacity style={styles.checkinButton} onPress={handleCheckin}>
-        <Text style={styles.buttonText}>I'm OK, Keep Going</Text>
+        <Text style={styles.buttonText}>{t('journey.im_safe')}</Text>
       </TouchableOpacity>
       
       <TouchableOpacity style={styles.cancelButton} onPress={handleCancel}>
-        <Text style={styles.cancelText}>Cancel Journey</Text>
+        <Text style={styles.cancelText}>{t('common.cancel')}</Text>
       </TouchableOpacity>
 
       {/* Two-Way Check-in Modal */}
       <Modal visible={checkinRequested} transparent animationType="fade">
         <View style={styles.modalOverlay}>
           <View style={styles.modalCard}>
-            <Text style={styles.modalTitle}>A contact is checking on you</Text>
-            <Text style={styles.modalBody}>Are you safe?</Text>
+            <Text style={styles.modalTitle}>{t('journey.checkin_prompt')}</Text>
+            <Text style={styles.modalBody}>{t('journey.checkin_prompt')}</Text>
             <TouchableOpacity style={styles.safeResponseButton} onPress={() => respondToCheckin('safe')}>
-              <Text style={styles.responseButtonText}>I'm Safe</Text>
+              <Text style={styles.responseButtonText}>{t('journey.im_safe')}</Text>
             </TouchableOpacity>
             <TouchableOpacity style={styles.helpResponseButton} onPress={() => respondToCheckin('help')}>
-              <Text style={styles.responseButtonText}>I Need Help</Text>
+              <Text style={styles.responseButtonText}>{t('journey.need_help')}</Text>
             </TouchableOpacity>
           </View>
         </View>
@@ -172,10 +166,8 @@ export default function ActiveJourneyScreen({ route, navigation }: Props) {
       <Modal visible={!!dangerWarning && !checkinRequested} transparent animationType="fade">
         <View style={styles.modalOverlay}>
           <View style={styles.modalCard}>
-            <Text style={styles.modalTitle}>Caution: reports nearby</Text>
-            <Text style={styles.modalBody}>
-              Several safety reports have come in near your current location. Consider an alternate route.
-            </Text>
+            <Text style={styles.modalTitle}>{t('journey.danger_title')}</Text>
+            <Text style={styles.modalBody}>{t('journey.danger_body')}</Text>
             <TouchableOpacity
               style={styles.modalButton}
               onPress={() => {
@@ -183,10 +175,10 @@ export default function ActiveJourneyScreen({ route, navigation }: Props) {
                 (navigation as any).navigate('Map'); 
               }}
             >
-              <Text style={styles.modalButtonText}>View on Map</Text>
+              <Text style={styles.modalButtonText}>{t('journey.view_on_map')}</Text>
             </TouchableOpacity>
             <TouchableOpacity style={styles.modalDismiss} onPress={() => setDangerWarning(null)}>
-              <Text style={styles.modalDismissText}>Dismiss</Text>
+              <Text style={styles.modalDismissText}>{t('common.cancel')}</Text>
             </TouchableOpacity>
           </View>
         </View>
@@ -203,21 +195,19 @@ const styles = StyleSheet.create({
   subtitle: { fontSize: 14, color: '#6B7280', marginBottom: 32 },
   safeButton: { backgroundColor: '#16A34A', borderRadius: 80, width: 160, height: 160, justifyContent: 'center', alignItems: 'center', marginBottom: 24 },
   safeText: { color: '#fff', fontSize: 18, fontWeight: 'bold', textAlign: 'center', paddingHorizontal: 12 },
-  checkinButton: { backgroundColor: '#6B21A8', borderRadius: 8, padding: 16, alignItems: 'center', width: '100%', marginBottom: 12 },
+  checkinButton: { backgroundColor: '#6B21A8', borderRadius: 8, padding: 16, minHeight: 52, alignItems: 'center', justifyContent: 'center', width: '100%', marginBottom: 12 },
   buttonText: { color: '#fff', fontSize: 16, fontWeight: 'bold' },
   cancelButton: { padding: 12 },
   cancelText: { color: '#DC2626', fontSize: 15 },
-  
   modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', alignItems: 'center', padding: 24 },
   modalCard: { backgroundColor: '#fff', borderRadius: 12, padding: 20, width: '100%' },
   modalTitle: { fontSize: 18, fontWeight: 'bold', color: '#92400E', marginBottom: 8 },
   modalBody: { fontSize: 14, color: '#111827', marginBottom: 16 },
-  modalButton: { backgroundColor: '#6B21A8', borderRadius: 8, padding: 14, alignItems: 'center', marginBottom: 8 },
+  modalButton: { backgroundColor: '#6B21A8', borderRadius: 8, padding: 14, minHeight: 48, alignItems: 'center', justifyContent: 'center', marginBottom: 8 },
   modalButtonText: { color: '#fff', fontSize: 15, fontWeight: 'bold' },
   modalDismiss: { alignItems: 'center', padding: 8 },
   modalDismissText: { color: '#6B7280', fontSize: 14 },
-
-  safeResponseButton: { backgroundColor: '#16A34A', borderRadius: 8, padding: 14, alignItems: 'center', marginBottom: 8 },
-  helpResponseButton: { backgroundColor: '#DC2626', borderRadius: 8, padding: 14, alignItems: 'center' },
+  safeResponseButton: { backgroundColor: '#16A34A', borderRadius: 8, padding: 14, minHeight: 48, alignItems: 'center', justifyContent: 'center', marginBottom: 8 },
+  helpResponseButton: { backgroundColor: '#DC2626', borderRadius: 8, padding: 14, minHeight: 48, alignItems: 'center', justifyContent: 'center' },
   responseButtonText: { color: '#fff', fontSize: 16, fontWeight: 'bold' },
 });

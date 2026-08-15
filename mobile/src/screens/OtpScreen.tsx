@@ -3,10 +3,12 @@ import { View, Text, TextInput, TouchableOpacity, StyleSheet } from 'react-nativ
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../navigation/AppNavigator';
 import { apiRequest } from '../api/client';
+import { t, useLanguage } from '../i18n';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'Otp'>;
 
 export default function OtpScreen({ route, navigation }: Props) {
+  useLanguage();
   const { phone, otpWindowSeconds } = route.params;
   const [code, setCode] = useState('');
   const [secondsLeft, setSecondsLeft] = useState(otpWindowSeconds);
@@ -27,13 +29,13 @@ export default function OtpScreen({ route, navigation }: Props) {
       });
       navigation.navigate('SetPin', { phone });
     } catch (err: any) {
-      setError(err.message || 'Incorrect code.');
+      setError(err.message || t('common.error'));
     }
   };
 
   return (
     <View style={styles.container}>
-      <Text style={styles.title}>Enter the code we sent</Text>
+      <Text style={styles.title}>{t('auth.otp_title')}</Text>
       <Text style={styles.subtitle}>
         {secondsLeft > 0 ? `Waiting for SMS... ${secondsLeft}s` : "Didn't get a code?"}
       </Text>
@@ -47,11 +49,11 @@ export default function OtpScreen({ route, navigation }: Props) {
       />
       {error ? <Text style={styles.error}>{error}</Text> : null}
       <TouchableOpacity style={styles.button} onPress={handleVerify} disabled={code.length !== 6}>
-        <Text style={styles.buttonText}>Verify</Text>
+        <Text style={styles.buttonText}>{t('auth.continue')}</Text>
       </TouchableOpacity>
       {secondsLeft <= 0 && (
         <TouchableOpacity style={styles.skipButton} onPress={() => navigation.navigate('SetPin', { phone })}>
-          <Text style={styles.skipText}>Set a PIN instead and continue</Text>
+          <Text style={styles.skipText}>{t('auth.otp_skip')}</Text>
         </TouchableOpacity>
       )}
     </View>
@@ -62,8 +64,8 @@ const styles = StyleSheet.create({
   container: { flex: 1, padding: 24, justifyContent: 'center' },
   title: { fontSize: 20, fontWeight: 'bold', marginBottom: 8, color: '#111827' },
   subtitle: { fontSize: 14, color: '#6B7280', marginBottom: 16 },
-  input: { borderWidth: 1, borderColor: '#6B7280', borderRadius: 8, padding: 14, fontSize: 16, marginBottom: 12, textAlign: 'center', letterSpacing: 4 },
-  button: { backgroundColor: '#6B21A8', borderRadius: 8, padding: 16, alignItems: 'center' },
+  input: { borderWidth: 1, borderColor: '#6B7280', borderRadius: 8, padding: 14, fontSize: 16, marginBottom: 12, textAlign: 'center', letterSpacing: 4, minHeight: 48 },
+  button: { backgroundColor: '#6B21A8', borderRadius: 8, padding: 16, minHeight: 52, alignItems: 'center', justifyContent: 'center' },
   buttonText: { color: '#fff', fontSize: 18, fontWeight: 'bold' },
   skipButton: { marginTop: 16, alignItems: 'center' },
   skipText: { color: '#6B21A8', fontSize: 15, textDecorationLine: 'underline' },

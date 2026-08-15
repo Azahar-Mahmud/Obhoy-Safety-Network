@@ -4,18 +4,12 @@ import { useFocusEffect } from '@react-navigation/native';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../navigation/AppNavigator';
 import { getLastAlertStatus, LastAlertStatus } from '../utils/lastAlertStatus';
+import { t, useLanguage } from '../i18n';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'LastAlertStatus'>;
 
-const CHANNEL_LABELS: Record<string, string> = {
-  backend: 'Sent via internet',
-  native: 'Sent by SMS',
-  lan: 'Sent to nearby Obhoy users (local WiFi)',
-  mesh: 'Sent to nearby Obhoy users (Bluetooth)',
-  failed: 'Could not be sent',
-};
-
 export default function LastAlertStatusScreen({ navigation }: Props) {
+  useLanguage();
   const [status, setStatus] = useState<LastAlertStatus | null>(null);
   const [checked, setChecked] = useState(false);
 
@@ -28,18 +22,26 @@ export default function LastAlertStatusScreen({ navigation }: Props) {
     }, [])
   );
 
+  const getChannelLabel = (channel: string) => {
+    if (channel === 'backend') return t('sos.channel_backend');
+    if (channel === 'native') return t('sos.channel_native');
+    if (channel === 'lan') return t('sos.channel_lan');
+    if (channel === 'mesh') return t('sos.channel_mesh');
+    return t('sos.channel_failed');
+  };
+
   return (
     <View style={styles.container}>
-      <Text style={styles.title}>Last Alert</Text>
+      <Text style={styles.title}>{t('sos.last_alert_title')}</Text>
       {!checked ? null : !status ? (
-        <Text style={styles.subtitle}>No alerts have been sent yet.</Text>
+        <Text style={styles.subtitle}>{t('sos.last_alert_none')}</Text>
       ) : (
         <View style={styles.card}>
           <Text style={styles.label}>Status</Text>
-          <Text style={styles.value}>{CHANNEL_LABELS[status.channel] || status.channel}</Text>
-          <Text style={styles.label}>Contacts reached</Text>
+          <Text style={styles.value}>{getChannelLabel(status.channel)}</Text>
+          <Text style={styles.label}>{t('home.contacts')}</Text>
           <Text style={styles.value}>{status.contactsNotifiedCount}</Text>
-          <Text style={styles.label}>Sent at</Text>
+          <Text style={styles.label}>{t('sos.last_alert_at', { time: '' })}</Text>
           <Text style={styles.value}>{new Date(status.sentAt).toLocaleString()}</Text>
           {status.error ? (
             <>
@@ -50,7 +52,7 @@ export default function LastAlertStatusScreen({ navigation }: Props) {
         </View>
       )}
       <TouchableOpacity style={styles.button} onPress={() => navigation.goBack()}>
-        <Text style={styles.buttonText}>Back</Text>
+        <Text style={styles.buttonText}>{t('common.back')}</Text>
       </TouchableOpacity>
     </View>
   );
@@ -63,6 +65,6 @@ const styles = StyleSheet.create({
   card: { backgroundColor: '#EDE9FE', borderRadius: 8, padding: 16, marginBottom: 24 },
   label: { fontSize: 12, color: '#6B7280', marginTop: 10 },
   value: { fontSize: 16, color: '#111827', fontWeight: '600' },
-  button: { backgroundColor: '#6B21A8', borderRadius: 8, padding: 14, alignItems: 'center', marginTop: 'auto' },
+  button: { backgroundColor: '#6B21A8', borderRadius: 8, padding: 14, minHeight: 48, alignItems: 'center', justifyContent: 'center', marginTop: 'auto' },
   buttonText: { color: '#fff', fontSize: 16, fontWeight: 'bold' },
 });

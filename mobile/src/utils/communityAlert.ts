@@ -2,15 +2,10 @@ import * as Location from 'expo-location';
 import { apiRequest } from '../api/client';
 import { sendLanAlert } from './lanAlert';
 import { sendMeshAlert } from './meshAlert';
+import { t } from '../i18n';
 
 export type AlertCategory = 'mugging' | 'harassment' | 'checkpost_harassment';
 export type CommunityAlertResult = { channel: 'backend' | 'lan' | 'mesh' | 'failed' };
-
-const CATEGORY_LABELS: Record<AlertCategory, string> = {
-  mugging: 'a mugging',
-  harassment: 'harassment',
-  checkpost_harassment: 'checkpost harassment',
-};
 
 export async function broadcastCommunityAlert(category: AlertCategory): Promise<CommunityAlertResult> {
   const { status } = await Location.requestForegroundPermissionsAsync();
@@ -18,17 +13,19 @@ export async function broadcastCommunityAlert(category: AlertCategory): Promise<
 
   const position = await Location.getCurrentPositionAsync({});
   const { latitude: lat, longitude: lng } = position.coords;
-  const message = `Obhoy: Anonymous alert — ${CATEGORY_LABELS[category]} reported nearby.`;
+
+  const categoryLabel = t(`category.${category}` as any);
+  const message = t('msg.community_alert', { category: categoryLabel });
 
   try {
     await apiRequest('/community-alerts', {
       method: 'POST',
-      body: JSON.stringify({ lat, lng, category }),
+      body: JSON.stringify({ lat, lng, category }), // DB Enum value stays in English
     });
     return { channel: 'backend' };
   } catch {
     const lanResult = await sendLanAlert(lat, lng, message);
-    if (lanResult) return { channel: 'lan' }; // Evaluates boolean directly
+    if (lanResult) return { channel: 'lan' };
 
     const meshBroadcastSent = await sendMeshAlert(lat, lng, message);
     return { channel: meshBroadcastSent ? 'mesh' : 'failed' };

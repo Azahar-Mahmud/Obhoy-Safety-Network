@@ -6,9 +6,8 @@ import * as Location from 'expo-location';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../navigation/AppNavigator';
 import { apiRequest } from '../api/client';
-
-// --- STEP 5: Import broadcast utility ---
 import { broadcastCommunityAlert } from '../utils/communityAlert';
+import { t, useLanguage } from '../i18n';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'Map'>;
 
@@ -27,7 +26,6 @@ function getScoreColor(score: number | null) {
   return { backgroundColor: '#DC2626' };                      
 }
 
-// --- STEP 5: Add alerts parameter to HTML builder ---
 function buildMapHtml(lat: number, lng: number, reports: any[], checkins: any[], alerts: any[]) {
   const reportMarkers = reports.map((r) => {
     const color = CATEGORY_COLORS[r.category] || '#6B7280';
@@ -52,7 +50,6 @@ function buildMapHtml(lat: number, lng: number, reports: any[], checkins: any[],
     `;
   }).join('\n');
 
-  // Live Community Alert Markers
   const alertMarkers = alerts.map((a) => {
     const label = `<b>LIVE ALERT: ${a.category.replace(/_/g, ' ').toUpperCase()}</b><br/>Reported in the last 45 mins.`;
     return `
@@ -98,10 +95,9 @@ function buildMapHtml(lat: number, lng: number, reports: any[], checkins: any[],
 }
 
 export default function MapScreen({ navigation }: Props) {
+  useLanguage();
   const [html, setHtml] = useState('');
   const [loading, setLoading] = useState(true);
-
-  // --- STEP 5: Category Picker Overlay State ---
   const [showAlertPicker, setShowAlertPicker] = useState(false);
 
   const [areaScore, setAreaScore] = useState<{ score: number | null; label: string; reportCount: number } | null>(null);
@@ -121,7 +117,6 @@ export default function MapScreen({ navigation }: Props) {
     const { coords } = await Location.getCurrentPositionAsync({});
     
     try {
-      // --- STEP 5: Fetch reports, checkins, AND live alerts in parallel ---
       const [reports, checkins, alerts] = await Promise.all([
         apiRequest(`/reports/nearby?lat=${coords.latitude}&lng=${coords.longitude}&radius=5`).catch(() => []),
         apiRequest(`/safety-checkins/nearby?lat=${coords.latitude}&lng=${coords.longitude}&radius=5`).catch(() => []),
@@ -160,18 +155,16 @@ export default function MapScreen({ navigation }: Props) {
       {areaScore && (
         <View style={[styles.scoreOverlay, getScoreColor(areaScore.score)]}>
           <Text style={styles.scoreText}>
-            {areaScore.score !== null ? `Area Safety: ${areaScore.score}/5` : 'Not enough data'}
+            {areaScore.score !== null ? `${t('map.score_title')}: ${areaScore.score}/5` : t('map.score_no_data')}
           </Text>
           <Text style={styles.scoreLabel}>{areaScore.label}</Text>
         </View>
       )}
 
-      {/* --- STEP 5: Warn Nearby Button --- */}
       <TouchableOpacity style={styles.warnButton} onPress={() => setShowAlertPicker(true)}>
-        <Text style={styles.warnButtonText}>Warn Nearby</Text>
+        <Text style={styles.warnButtonText}>{t('map.warn_nearby')}</Text>
       </TouchableOpacity>
 
-      {/* --- STEP 5: Quick Category Picker Overlay --- */}
       {showAlertPicker && (
         <View style={styles.pickerOverlay}>
           {(['mugging', 'harassment', 'checkpost_harassment'] as const).map((category) => (
@@ -182,23 +175,23 @@ export default function MapScreen({ navigation }: Props) {
                 setShowAlertPicker(false);
                 const result = await broadcastCommunityAlert(category);
                 Alert.alert(
-                  'Sent',
-                  result.channel === 'failed' ? 'Could not broadcast right now.' : 'Nearby users warned.'
+                  t('sos.sent_title'),
+                  result.channel === 'failed' ? t('sos.channel_failed') : t('report.submitted')
                 );
-                loadMap(); // Instantly refresh map to show the new alert marker
+                loadMap();
               }}
             >
-              <Text style={styles.pickerOptionText}>{category.replace(/_/g, ' ')}</Text>
+              <Text style={styles.pickerOptionText}>{t(`category.${category}` as any)}</Text>
             </TouchableOpacity>
           ))}
           <TouchableOpacity style={styles.pickerCancel} onPress={() => setShowAlertPicker(false)}>
-            <Text style={styles.pickerCancelText}>Cancel</Text>
+            <Text style={styles.pickerCancelText}>{t('common.cancel')}</Text>
           </TouchableOpacity>
         </View>
       )}
 
       <TouchableOpacity style={styles.reportButton} onPress={() => navigation.navigate('ReportCategory')}>
-        <Text style={styles.reportButtonText}>+ Report</Text>
+        <Text style={styles.reportButtonText}>{t('map.report_button')}</Text>
       </TouchableOpacity>
     </View>
   );
@@ -225,7 +218,6 @@ const styles = StyleSheet.create({
   scoreText: { color: '#fff', fontWeight: 'bold', fontSize: 15 },
   scoreLabel: { color: '#fff', fontSize: 12, marginTop: 2 },
 
-  // --- STEP 5: Warn Nearby & Picker Overlay Styles ---
   warnButton: { 
     position: 'absolute', 
     bottom: 24, 
@@ -234,6 +226,8 @@ const styles = StyleSheet.create({
     borderRadius: 30, 
     paddingVertical: 14, 
     paddingHorizontal: 20, 
+    minHeight: 48,
+    justifyContent: 'center',
     elevation: 4 
   },
   warnButtonText: { color: '#fff', fontWeight: 'bold', fontSize: 15 },
@@ -250,14 +244,14 @@ const styles = StyleSheet.create({
     shadowRadius: 6,
     shadowOffset: { width: 0, height: 3 }
   },
-  pickerOption: { padding: 12, borderBottomWidth: 1, borderBottomColor: '#F3F4F6' },
-  pickerOptionText: { color: '#111827', textTransform: 'capitalize', fontWeight: '600' },
+  pickerOption: { padding: 14, borderBottomWidth: 1, borderBottomColor: '#F3F4F6', minHeight: 44, justifyContent: 'center' },
+  pickerOptionText: { color: '#111827', fontWeight: '600' },
   pickerCancel: { padding: 12, alignItems: 'center' },
   pickerCancelText: { color: '#6B7280', fontWeight: 'bold' },
 
   reportButton: {
     position: 'absolute', bottom: 24, alignSelf: 'center',
-    backgroundColor: '#6B21A8', paddingVertical: 14, paddingHorizontal: 28, borderRadius: 30, elevation: 4,
+    backgroundColor: '#6B21A8', paddingVertical: 14, paddingHorizontal: 28, minHeight: 48, justifyContent: 'center', borderRadius: 30, elevation: 4,
   },
   reportButtonText: { color: '#fff', fontSize: 16, fontWeight: 'bold' },
 });
