@@ -9,6 +9,7 @@ import { apiRequest } from '../api/client';
 import { checkRouteDanger, NearbyReport } from '../utils/routeDangerCheck';
 import ScheduledCheckinView from './ScheduledCheckinView';
 import { t, useLanguage } from '../i18n';
+import { publishKnownLocation } from '../utils/familyLocation'; // <--- ADDED for Obhoy_31 Rung 4
 
 Notifications.setNotificationHandler({
   handleNotification: async () => ({
@@ -76,6 +77,9 @@ export default function ActiveJourneyScreen({ route, navigation }: Props) {
         });
         setInsideGeofence(result.insideGeofence);
         setCheckinRequested(!!result.pendingCheckinRequest);
+
+        // Rung 4: Piggyback publish to family
+        publishKnownLocation(coords.latitude, coords.longitude, coords.accuracy);
 
         const now = Date.now();
         if (now - lastWarnedRef.current > WARNING_COOLDOWN_MS) {

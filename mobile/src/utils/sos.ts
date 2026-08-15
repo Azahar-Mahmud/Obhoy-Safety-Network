@@ -5,7 +5,8 @@ import * as SmsManager from 'expo-sms-manager';
 import { PermissionsAndroid, Platform } from 'react-native';
 import { apiRequest } from '../api/client';
 import { sendLanAlert } from './lanAlert';
-import { t } from '../i18n'; // <--- ADDED
+import { t } from '../i18n';
+import { publishKnownLocation } from './familyLocation'; // <--- ADDED for Obhoy_31 Rung 3
 
 export async function ensureSmsPermission(): Promise<boolean> {
   if (Platform.OS !== 'android') return true;
@@ -49,6 +50,9 @@ export async function triggerSos(contacts: Contact[]): Promise<SosResult> {
     lng = lastKnown.coords.longitude;
     accuracy = lastKnown.coords.accuracy ?? 0;
   }
+
+  // Rung 3: Opportunistic family publish using fix already obtained (fire-and-forget)
+  publishKnownLocation(lat, lng, accuracy);
 
   // Layer 1: Server / Internet API
   try {

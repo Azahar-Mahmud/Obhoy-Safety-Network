@@ -3,6 +3,7 @@ import React, { useEffect, useState, createContext } from 'react';
 import { AppState, AppStateStatus } from 'react-native';
 import { recordLastActive } from './src/utils/lastActive';
 import { loadLanguage } from './src/i18n';
+import { publishLocation } from './src/utils/familyLocation'; // <--- ADDED for Obhoy_31 Rung 1
 
 import { SilentModeProvider } from './src/context/SilentModeContext';
 import { FallDetectionProvider } from './src/context/FallDetectionContext';
@@ -28,19 +29,21 @@ export default function App() {
     });
   }, []);
 
-  // === TRACK LAST ACTIVE TIME ===
+  // === TRACK LAST ACTIVE TIME & OPPORTUNISTIC LOCATION PUBLISH ===
   useEffect(() => {
     recordLastActive();
+    publishLocation(); // Rung 1 initial
     
     const subscription = AppState.addEventListener('change', (nextState: AppStateStatus) => {
       if (nextState === 'active') {
         recordLastActive();
+        publishLocation(); // Rung 1 on foreground transition
       }
     });
     
     return () => subscription.remove();
   }, []);
-  // ===============================
+  // ===============================================================
 
   if (!languageReady) return null;
 

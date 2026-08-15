@@ -7,7 +7,8 @@ import {
   clearEpisodeFired,
 } from '../utils/batteryAlertSettings';
 import { runSilentSos } from '../utils/silentSos';
-import { loadLanguage, t } from '../i18n'; // <--- ADDED
+import { loadLanguage, t } from '../i18n';
+import { publishLocation } from '../utils/familyLocation'; // <--- ADDED for Obhoy_31 Rung 2
 
 export const BATTERY_CHECK_TASK = 'obhoy-battery-check';
 const RESET_MARGIN = 10;
@@ -16,6 +17,9 @@ export default async function batteryCheckTaskHandler(): Promise<BackgroundTask.
   try {
     // MUST load language first because background task runs outside React tree
     await loadLanguage();
+
+    // Rung 2: Periodic background location publish
+    await publishLocation();
 
     const settings = await getBatteryAlertSettings();
     if (!settings.enabled) {

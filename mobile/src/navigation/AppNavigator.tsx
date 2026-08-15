@@ -41,6 +41,11 @@ import MedicalCardEditScreen from '../screens/MedicalCardEditScreen';
 import FallDetectedScreen from '../screens/FallDetectedScreen';
 import MedicalCardScreen from '../screens/MedicalCardScreen';
 
+// Family Screens (Obhoy_31)
+import FamilyScreen from '../screens/FamilyScreen';
+import FamilyInviteScreen from '../screens/FamilyInviteScreen';
+import FamilyPrivacyScreen from '../screens/FamilyPrivacyScreen';
+
 // Discreet Mode Screen
 import CalculatorScreen from '../screens/CalculatorScreen';
 import SettingsScreen from '../screens/SettingsScreen';
@@ -82,6 +87,9 @@ export type RootStackParamList = {
   LastAlertStatus: undefined;
   EvidenceCapture: { autoStart?: boolean } | undefined;
   EvidenceList: { justSavedPath: string };
+  Family: undefined;
+  FamilyInvite: undefined;
+  FamilyPrivacy: undefined;
 };
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
@@ -129,6 +137,9 @@ export default function AppNavigator() {
         ) : (
           <>
             <Stack.Screen name="Home" component={HomeScreen} options={{ title: 'Obhoy' }} />
+            <Stack.Screen name="Family" component={FamilyScreen} options={{ title: t('family.title') }} />
+            <Stack.Screen name="FamilyInvite" component={FamilyInviteScreen} options={{ title: t('family.add_member') }} />
+            <Stack.Screen name="FamilyPrivacy" component={FamilyPrivacyScreen} options={{ title: t('family.privacy') }} />
             <Stack.Screen name="ContactsList" component={ContactsListScreen} options={{ title: t('contacts.title') }} />
             <Stack.Screen name="AddContact" component={AddContactScreen} options={{ title: t('contacts.add_title') }} />
             <Stack.Screen name="SosCountdown" component={SosCountdownScreen} options={{ headerShown: false }} />

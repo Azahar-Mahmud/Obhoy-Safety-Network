@@ -3,6 +3,7 @@ import { apiRequest } from '../api/client';
 import { sendLanAlert } from './lanAlert';
 import { sendMeshAlert } from './meshAlert';
 import { t } from '../i18n';
+import { publishKnownLocation } from './familyLocation'; // <--- ADDED for Obhoy_31 Rung 5
 
 export type SafetyCheckinResult = { channel: 'backend' | 'lan' | 'mesh' | 'failed' };
 
@@ -12,6 +13,9 @@ export async function broadcastSafeCheckin(): Promise<SafetyCheckinResult> {
 
   const position = await Location.getCurrentPositionAsync({});
   const { latitude: lat, longitude: lng } = position.coords;
+
+  // Rung 5: Piggyback publish to family
+  publishKnownLocation(lat, lng, position.coords.accuracy);
 
   try {
     await apiRequest('/safety-checkins', {

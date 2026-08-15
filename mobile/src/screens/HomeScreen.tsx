@@ -79,6 +79,11 @@ export default function HomeScreen({ navigation }: Props) {
         <Text style={styles.safeCheckinText}>{t('home.i_am_safe')}</Text>
       </TouchableOpacity>
 
+      {/* Family Live Location Button */}
+      <TouchableOpacity style={styles.button} onPress={() => navigation.navigate('Family')}>
+        <Text style={styles.buttonText}>{t('home.family')}</Text>
+      </TouchableOpacity>
+
       {activeJourney ? (
         <TouchableOpacity
           style={styles.journeyButton}
