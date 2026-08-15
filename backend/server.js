@@ -13,7 +13,8 @@ const reportsRoutes = require('./routes/reports');
 const evidenceRoutes = require('./routes/evidence'); 
 const safetyCheckinsRoutes = require('./routes/safetyCheckins'); 
 const communityAlertRoutes = require('./routes/communityAlerts');
-const preferencesRoutes = require('./routes/preferences'); // <--- ADDED for Obhoy_30
+const preferencesRoutes = require('./routes/preferences');
+const familyRoutes = require('./routes/family'); // <--- ADDED for Obhoy_31
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -36,7 +37,8 @@ app.use('/reports', reportsRoutes);
 app.use('/evidence', evidenceRoutes); 
 app.use('/safety-checkins', safetyCheckinsRoutes); 
 app.use('/community-alerts', communityAlertRoutes);
-app.use('/preferences', preferencesRoutes); // <--- ADDED for Obhoy_30
+app.use('/preferences', preferencesRoutes);
+app.use('/family', familyRoutes); // <--- ADDED for Obhoy_31
 
 mongoose.connect(process.env.MONGODB_URI)
   .then(() => console.log('MongoDB connected'))

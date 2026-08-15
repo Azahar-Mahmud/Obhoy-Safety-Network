@@ -7,6 +7,7 @@ const MESSAGES = {
     'sms.geofence': 'Obhoy Alert: {{name}} left their safe zone. Location: {{link}}',
     'sms.two_way_help': 'Obhoy Alert: {{name}} needs help. Location: {{link}}',
     'sms.evidence_start': 'Obhoy: {{name}} started recording. Follow live: {{link}}',
+    'sms.family_invite': 'Obhoy: {{name}} wants to share live location with you on Obhoy. Ask them how to install it.', // <--- ADDED for Obhoy_31
   },
   bn: {
     'sms.sos': 'অভয়: {{name}} বিপদে আছে, তাড়াতাড়ি আসো। অবস্থান: {{link}}',
@@ -16,6 +17,7 @@ const MESSAGES = {
     'sms.geofence': 'অভয়: {{name}} নিরাপদ এলাকার বাইরে গেছে। অবস্থান: {{link}}',
     'sms.two_way_help': 'অভয়: {{name}} সাহায্য চেয়েছে। অবস্থান: {{link}}',
     'sms.evidence_start': 'অভয়: {{name}} রেকর্ডিং শুরু করেছে। দেখুন: {{link}}',
+    'sms.family_invite': 'অভয়: {{name}} আপনার সাথে অবস্থান ভাগ করতে চায়। অ্যাপটি কীভাবে নেবেন, তাকে জিজ্ঞেস করুন।', // <--- ADDED for Obhoy_31
   },
 };
 
