@@ -5,10 +5,13 @@ import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../navigation/AppNavigator';
 import { apiRequest } from '../api/client';
 import { useAuth } from '../context/AuthContext';
+import { syncLanguageToBackend } from '../utils/languageSync';
+import { t, useLanguage } from '../i18n';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'SetPin'>;
 
 export default function SetPinScreen({ route }: Props) {
+  useLanguage();
   const { phone } = route.params;
   const { signIn } = useAuth();
   const [pin, setPin] = useState('');
@@ -28,20 +31,37 @@ export default function SetPinScreen({ route }: Props) {
       });
       await saveLocalPinVerifier(pin);
       await signIn(data.token);
+      syncLanguageToBackend(); // Fire-and-forget sync
     } catch (err: any) {
-      setError(err.message || 'Something went wrong.');
+      setError(err.message || t('common.error'));
     }
   };
 
   return (
     <View style={styles.container}>
-      <Text style={styles.title}>Choose a 4 to 6 digit PIN</Text>
-      <Text style={styles.subtitle}>You'll use this to log in from now on.</Text>
-      <TextInput style={styles.input} placeholder="New PIN" keyboardType="number-pad" secureTextEntry maxLength={6} value={pin} onChangeText={setPin} />
-      <TextInput style={styles.input} placeholder="Confirm PIN" keyboardType="number-pad" secureTextEntry maxLength={6} value={confirmPin} onChangeText={setConfirmPin} />
+      <Text style={styles.title}>{t('auth.set_pin_title')}</Text>
+      <Text style={styles.subtitle}>{t('auth.set_pin_hint')}</Text>
+      <TextInput
+        style={styles.input}
+        placeholder="New PIN"
+        keyboardType="number-pad"
+        secureTextEntry
+        maxLength={6}
+        value={pin}
+        onChangeText={setPin}
+      />
+      <TextInput
+        style={styles.input}
+        placeholder="Confirm PIN"
+        keyboardType="number-pad"
+        secureTextEntry
+        maxLength={6}
+        value={confirmPin}
+        onChangeText={setConfirmPin}
+      />
       {error ? <Text style={styles.error}>{error}</Text> : null}
       <TouchableOpacity style={styles.button} onPress={handleSetPin} disabled={pin.length < 4}>
-        <Text style={styles.buttonText}>Finish</Text>
+        <Text style={styles.buttonText}>{t('common.done')}</Text>
       </TouchableOpacity>
     </View>
   );

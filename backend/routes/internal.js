@@ -3,6 +3,7 @@ const JourneySession = require('../models/JourneySession');
 const TrustedContact = require('../models/TrustedContact');
 const User = require('../models/User');
 const { sendSms } = require('../utils/smsGateway');
+const { tSms } = require('../utils/i18n'); // <--- ADDED
 
 const router = express.Router();
 
@@ -16,8 +17,6 @@ router.post('/check-overdue-journeys', async (req, res) => {
   let alerted = 0;
 
   for (const journey of activeJourneys) {
-    
-    // --- STEP 4: Branch the overdue check ---
     let deadline;
     if (journey.mode === 'scheduled') {
       if (!journey.scheduledDeadline) continue;
@@ -27,17 +26,15 @@ router.post('/check-overdue-journeys', async (req, res) => {
     }
 
     if (now < deadline) continue;
-    // ----------------------------------------
 
     const user = await User.findById(journey.userId);
     const contacts = await TrustedContact.find({ userId: journey.userId });
     const trackUrl = `${process.env.WEB_TRACKER_URL}/${journey.trackingToken}`;
     
-    // --- STEP 4: Mode-specific alert message ---
+    // Mode-specific localized alert message
     const message = journey.mode === 'scheduled'
-      ? `Obhoy Alert: ${user.phone} did not confirm safety by their scheduled check-in time. Track live location: ${trackUrl}`
-      : `Obhoy Alert: ${user.phone} missed a journey check-in. Track live location: ${trackUrl}`;
-    // -------------------------------------------
+      ? tSms(user?.language, 'sms.scheduled_missed', { name: user?.phone || 'Obhoy User', link: trackUrl })
+      : tSms(user?.language, 'sms.journey_overdue', { name: user?.phone || 'Obhoy User', link: trackUrl });
 
     const notified = [];
     for (const contact of contacts) {

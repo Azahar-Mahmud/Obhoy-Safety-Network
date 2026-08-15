@@ -63,6 +63,14 @@ export default function HomeScreen({ navigation }: Props) {
   return (
     <View style={styles.container}>
       <Text style={styles.title}>Obhoy</Text>
+
+      {/* --- TEMPORARY STEP 2 FONT RENDERING TEST --- */}
+      <View style={{ padding: 12, backgroundColor: '#EDE9FE', borderRadius: 8, marginBottom: 12, width: '100%', alignItems: 'center' }}>
+        <Text style={{ fontSize: 15, color: '#111827' }}>অভয় — নিরাপদ থাকুন, সংযুক্ত থাকুন</Text>
+        <Text style={{ fontSize: 16, fontWeight: 'bold', color: '#111827', marginVertical: 4 }}>আমি নিরাপদে পৌঁছেছি</Text>
+        <Text style={{ fontSize: 22, color: '#111827' }}>ক্ষ ত্র জ্ঞ ঙ্ক ষ্ট হৃ রূ</Text>
+      </View>
+      {/* ------------------------------------------- */}
       
       <TouchableOpacity 
         style={styles.sosButton} 
@@ -129,14 +137,11 @@ const styles = StyleSheet.create({
   container: { flex: 1, padding: 24, justifyContent: 'center', alignItems: 'center' },
   title: { fontSize: 28, fontWeight: 'bold', color: '#6B21A8', marginBottom: 24 },
   
-  // Note: I changed the SOS button marginBottom to 12 so the "I Am Safe" button sits closer to it visually
   sosButton: { width: 160, height: 160, borderRadius: 80, backgroundColor: '#DC2626', justifyContent: 'center', alignItems: 'center', marginBottom: 12, elevation: 4 },
   sosText: { color: '#fff', fontSize: 32, fontWeight: 'bold' },
   
-  // --- STEP 4: New Button Styles ---
   safeCheckinButton: { backgroundColor: '#16A34A', borderRadius: 8, padding: 14, alignItems: 'center', width: '100%', marginBottom: 24 },
   safeCheckinText: { color: '#fff', fontSize: 16, fontWeight: 'bold' },
-  // ---------------------------------
 
   journeyButton: { backgroundColor: '#D97706', borderRadius: 8, padding: 16, alignItems: 'center', width: '100%', marginBottom: 12 },
   button: { backgroundColor: '#6B21A8', borderRadius: 8, padding: 16, alignItems: 'center', width: '100%', marginBottom: 12 },

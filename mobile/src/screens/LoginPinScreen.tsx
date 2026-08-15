@@ -5,10 +5,13 @@ import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../navigation/AppNavigator';
 import { apiRequest } from '../api/client';
 import { useAuth } from '../context/AuthContext';
+import { syncLanguageToBackend } from '../utils/languageSync';
+import { t, useLanguage } from '../i18n';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'LoginPin'>;
 
 export default function LoginPinScreen({ route }: Props) {
+  useLanguage();
   const { phone } = route.params;
   const { signIn } = useAuth();
   const [pin, setPin] = useState('');
@@ -23,6 +26,7 @@ export default function LoginPinScreen({ route }: Props) {
       });
       await saveLocalPinVerifier(pin);
       await signIn(data.token);
+      syncLanguageToBackend(); // Fire-and-forget backfill sync
     } catch (err: any) {
       setError(err.message || 'Incorrect PIN.');
     }
@@ -30,12 +34,20 @@ export default function LoginPinScreen({ route }: Props) {
 
   return (
     <View style={styles.container}>
-      <Text style={styles.title}>Enter your PIN</Text>
+      <Text style={styles.title}>{t('auth.login_pin_title')}</Text>
       <Text style={styles.subtitle}>{phone}</Text>
-      <TextInput style={styles.input} placeholder="PIN" keyboardType="number-pad" secureTextEntry maxLength={6} value={pin} onChangeText={setPin} />
+      <TextInput
+        style={styles.input}
+        placeholder="PIN"
+        keyboardType="number-pad"
+        secureTextEntry
+        maxLength={6}
+        value={pin}
+        onChangeText={setPin}
+      />
       {error ? <Text style={styles.error}>{error}</Text> : null}
       <TouchableOpacity style={styles.button} onPress={handleLogin} disabled={pin.length < 4}>
-        <Text style={styles.buttonText}>Log In</Text>
+        <Text style={styles.buttonText}>{t('auth.continue')}</Text>
       </TouchableOpacity>
     </View>
   );

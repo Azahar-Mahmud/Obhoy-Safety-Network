@@ -6,13 +6,13 @@ const User = require('../models/User');
 const authMiddleware = require('../middleware/authMiddleware');
 const { sendSms } = require('../utils/smsGateway');
 const { buildStatusLine } = require('../utils/statusLine');
+const { tSms } = require('../utils/i18n'); // <--- ADDED
 
 const router = express.Router();
 router.use(authMiddleware);
 
 router.post('/trigger', async (req, res) => {
   try {
-    // UPDATED: Now destructures lastActiveAt and batteryPercent from the request body
     const { lat, lng, accuracy, lastActiveAt, batteryPercent } = req.body;
     if (typeof lat !== 'number' || typeof lng !== 'number') {
       return res.status(400).json({ error: 'Location required.' });
@@ -32,11 +32,10 @@ router.post('/trigger', async (req, res) => {
 
     const trackUrl = `${process.env.WEB_TRACKER_URL}/${trackingToken}`;
     
-    // NEW: Build the text suffix (e.g., " | Last active: just now, Battery: 95%")
     const statusLine = buildStatusLine(lastActiveAt, batteryPercent);
     
-    // UPDATED: Append the statusLine to the end of the message
-    const message = `Obhoy Alert: ${user.phone} needs help. Track live location: ${trackUrl}${statusLine}`;
+    // Localized alert message + statusLine
+    const message = tSms(user.language, 'sms.sos', { name: user.phone, link: trackUrl }) + statusLine;
 
     const notified = [];
     for (const contact of contacts) {

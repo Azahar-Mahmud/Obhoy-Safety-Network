@@ -8,6 +8,7 @@ const userSchema = new mongoose.Schema({
   otpExpiresAt: { type: Date, default: null },
   otpLastSentAt: { type: Date, default: null },
   failedPinAttempts: { type: Number, default: 0 },
+  language: { type: String, enum: ['en', 'bn'], default: 'en' },
   medicalCard: {
     bloodType: { type: String, default: null },
     allergies: { type: String, default: null },

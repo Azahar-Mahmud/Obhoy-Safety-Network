@@ -4,6 +4,7 @@ const JourneySession = require('../models/JourneySession');
 const User = require('../models/User'); 
 const TrustedContact = require('../models/TrustedContact'); 
 const { sendSms } = require('../utils/smsGateway'); 
+const { tSms } = require('../utils/i18n'); // <--- ADDED
 const authMiddleware = require('../middleware/authMiddleware');
 
 const router = express.Router();
@@ -21,7 +22,6 @@ function distanceMeters(lat1, lng1, lat2, lng2) {
 
 router.post('/start', async (req, res) => {
   try {
-    // --- OBHOY_26 STEP 3: Accept the new fields from the app ---
     const { 
       destinationLabel, checkinIntervalMinutes, lat, lng, accuracy, 
       geofenceEnabled, geofenceRadiusMeters, mode, scheduledDeadline 
@@ -33,7 +33,6 @@ router.post('/start', async (req, res) => {
       userId: req.userId,
       trackingToken,
       destinationLabel: destinationLabel || '',
-      // Map the new fields to the database model
       mode: mode || 'interval',
       scheduledDeadline: mode === 'scheduled' && scheduledDeadline ? new Date(scheduledDeadline) : null,
       checkinIntervalMinutes: checkinIntervalMinutes || 30,
@@ -43,13 +42,17 @@ router.post('/start', async (req, res) => {
       geofenceRadiusMeters: geofenceEnabled ? geofenceRadiusMeters : null,
       geofenceCenter: geofenceEnabled && typeof lat === 'number' ? { lat, lng } : undefined,
     });
-    // ------------------------------------------------------------
     
     // Send the tracker link at journey start
     const trackUrl = `${process.env.WEB_TRACKER_URL}/${trackingToken}`;
     const contacts = await TrustedContact.find({ userId: req.userId });
     const user = await User.findById(req.userId);
-    const startMessage = `Obhoy: ${user.phone} started a journey${destinationLabel ? ' to ' + destinationLabel : ''}. Track: ${trackUrl}`;
+    
+    const startMessage = tSms(user.language, 'sms.journey_start', {
+      name: user.phone,
+      destination: destinationLabel || 'destination',
+      link: trackUrl,
+    });
     
     for (const contact of contacts) {
       try {
@@ -78,16 +81,15 @@ router.patch('/:id/location', async (req, res) => {
   if (journey.geofenceEnabled && journey.geofenceCenter) {
     const distance = distanceMeters(journey.geofenceCenter.lat, journey.geofenceCenter.lng, lat, lng);
     insideGeofence = distance <= journey.geofenceRadiusMeters;
-    const resetMarginMeters = 25; // Hysteresis margin to prevent alert spam right on the edge
+    const resetMarginMeters = 25;
 
     if (!insideGeofence && !journey.geofenceAlerted) {
       journey.geofenceAlerted = true;
       const contacts = await TrustedContact.find({ userId: req.userId });
       const user = await User.findById(req.userId);
       const trackUrl = `${process.env.WEB_TRACKER_URL}/${journey.trackingToken}`;
-      const message = `Obhoy Alert: ${user.phone} left their safe zone. Live location: ${trackUrl}`;
+      const message = tSms(user.language, 'sms.geofence', { name: user.phone, link: trackUrl });
       
-      // Send SMS in the background (fire-and-forget) so the app doesn't timeout
       contacts.forEach(contact => {
         sendSms(contact.phone, message).catch(err => 
           console.error('Geofence alert SMS failed for', contact.phone, err.message)
@@ -100,7 +102,6 @@ router.patch('/:id/location', async (req, res) => {
 
   await journey.save();
   
-  // Surface the pending flag on the existing poll
   res.json({ updated: true, insideGeofence, pendingCheckinRequest: journey.pendingCheckinRequest });
 });
 
@@ -123,7 +124,7 @@ router.patch('/:id/checkin-response', async (req, res) => {
   const user = await User.findById(req.userId);
   const contacts = await TrustedContact.find({ userId: req.userId });
   const trackUrl = `${process.env.WEB_TRACKER_URL}/${journey.trackingToken}`;
-  const message = `Obhoy Alert: ${user.phone} responded HELP to a safety check. Track: ${trackUrl}`;
+  const message = tSms(user.language, 'sms.two_way_help', { name: user.phone, link: trackUrl });
   for (const contact of contacts) {
     try {
       await sendSms(contact.phone, message);

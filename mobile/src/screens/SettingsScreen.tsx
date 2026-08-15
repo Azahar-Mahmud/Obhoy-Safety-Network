@@ -5,6 +5,8 @@ import { useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../navigation/AppNavigator';
 import * as SecureStore from 'expo-secure-store';
+import { t, useLanguage } from '../i18n';
+import LanguageToggle from '../components/LanguageToggle';
 import SilentModeToggle from '../components/SilentModeToggle';
 import BatteryAlertSettings from '../components/BatteryAlertSettings';
 
@@ -13,6 +15,7 @@ const FALL_SENSITIVITY_KEY = 'obhoy_fall_sensitivity';
 const AUTO_RECORD_KEY = 'obhoy_auto_record_sos';
 
 export default function SettingsScreen() {
+  useLanguage();
   const { discreetModeEnabled, enable, disable } = useDiscreetMode();
   const [busy, setBusy] = useState(false);
   const [fallEnabled, setFallEnabled] = useState(false);
@@ -35,9 +38,9 @@ export default function SettingsScreen() {
         'Enable Discreet Mode?',
         'Obhoy will now open as a calculator on your home screen.\n\nType your PIN and press "=" to unlock the app.\n\nNote: The app will close or refresh to update the icon.',
         [
-          { text: 'Cancel', style: 'cancel' },
+          { text: t('common.cancel'), style: 'cancel' },
           {
-            text: 'Turn On',
+            text: t('common.confirm'),
             onPress: async () => {
               setBusy(true);
               try { await enable(); } catch (e) { console.error(e); } finally { setBusy(false); }
@@ -68,13 +71,16 @@ export default function SettingsScreen() {
 
   return (
     <ScrollView style={styles.container}>
+      {/* 1. Language Toggle at Top */}
+      <LanguageToggle />
+
+      <View style={styles.divider} />
+
       {/* Discreet Mode */}
       <View style={styles.row}>
         <View style={{ flex: 1 }}>
-          <Text style={styles.label}>Discreet Mode</Text>
-          <Text style={styles.hint}>
-            Disguises Obhoy as a calculator on your home screen and app drawer.
-          </Text>
+          <Text style={styles.label}>{t('settings.discreet')}</Text>
+          <Text style={styles.hint}>{t('settings.discreet_hint')}</Text>
         </View>
         <Switch value={discreetModeEnabled} onValueChange={handleDiscreetToggle} disabled={busy} />
       </View>
@@ -107,7 +113,7 @@ export default function SettingsScreen() {
       {/* Fall Detection */}
       <View style={styles.row}>
         <View style={{ flex: 1 }}>
-          <Text style={styles.label}>Fall Detection</Text>
+          <Text style={styles.label}>{t('settings.fall_detection')}</Text>
           <Text style={styles.hint}>Detects a sudden fall and checks in before alerting contacts.</Text>
         </View>
         <Switch value={fallEnabled} onValueChange={toggleFallDetection} />
@@ -122,7 +128,7 @@ export default function SettingsScreen() {
               onPress={() => changeSensitivity(level)}
             >
               <Text style={[styles.chipText, sensitivity === level && styles.chipTextActive]}>
-                {level.charAt(0).toUpperCase() + level.slice(1)}
+                {t(`settings.sensitivity_${level}` as any)}
               </Text>
             </TouchableOpacity>
           ))}
@@ -137,7 +143,7 @@ export default function SettingsScreen() {
         onPress={() => navigation.navigate('LastAlertStatus')}
       >
         <View style={{ flex: 1 }}>
-          <Text style={styles.label}>Check Last Alert Status</Text>
+          <Text style={styles.label}>{t('sos.last_alert_title')}</Text>
           <Text style={styles.hint}>View details of your most recent Silent SOS.</Text>
         </View>
         <Text style={styles.arrow}>›</Text>
@@ -151,7 +157,7 @@ export default function SettingsScreen() {
         onPress={() => navigation.navigate('MedicalCardEdit')}
       >
         <View style={{ flex: 1 }}>
-          <Text style={styles.label}>Medical Emergency Card</Text>
+          <Text style={styles.label}>{t('settings.medical_card')}</Text>
           <Text style={styles.hint}>Update your blood type, allergies, and notes.</Text>
         </View>
         <Text style={styles.arrow}>›</Text>
@@ -171,7 +177,7 @@ const styles = StyleSheet.create({
   settingRow: { flexDirection: 'row', alignItems: 'center', paddingVertical: 16 },
   arrow: { fontSize: 24, color: '#9CA3AF', paddingLeft: 8 },
   chipRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 16 },
-  chip: { paddingVertical: 8, paddingHorizontal: 14, borderRadius: 20, backgroundColor: '#EDE9FE' },
+  chip: { minHeight: 36, paddingVertical: 8, paddingHorizontal: 14, borderRadius: 20, backgroundColor: '#EDE9FE', justifyContent: 'center' },
   chipActive: { backgroundColor: '#6B21A8' },
   chipText: { color: '#6B21A8', fontWeight: 'bold' },
   chipTextActive: { color: '#fff' },

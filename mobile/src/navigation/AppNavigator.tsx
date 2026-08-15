@@ -1,14 +1,17 @@
-import EvidenceListScreen from '../screens/EvidenceListScreen';
-import NearbyAlertsScreen from '../screens/NearbyAlertsScreen';
-import LastAlertStatusScreen from '../screens/LastAlertStatusScreen';
-import React from 'react';
+import React, { useContext } from 'react';
 import { View, ActivityIndicator } from 'react-native';
 import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 
-// Contexts
+// Contexts & i18n
 import { useAuth } from '../context/AuthContext';
 import { useDiscreetMode } from '../context/DiscreetModeContext';
+import { useFallDetection } from '../context/FallDetectionContext';
+import { useLanguage, t } from '../i18n';
+import { LanguageChosenContext } from '../../App';
+
+// First-Run Screen
+import LanguageSelectScreen from '../screens/LanguageSelectScreen';
 
 // Auth Screens
 import PhoneEntryScreen from '../screens/PhoneEntryScreen';
@@ -30,19 +33,20 @@ import ReportCategoryScreen from '../screens/ReportCategoryScreen';
 import ReportConfirmScreen from '../screens/ReportConfirmScreen';
 import ReportDescriptionScreen from '../screens/ReportDescriptionScreen';
 import ReportSuccessScreen from '../screens/ReportSuccessScreen';
-import EvidenceCaptureScreen from '../screens/EvidenceCaptureScreen'; // <--- NEW IMPORT
-
-// Discreet Mode Screens
-import CalculatorScreen from '../screens/CalculatorScreen';
-import SettingsScreen from '../screens/SettingsScreen';
-
-// Medical Card Screen
+import EvidenceCaptureScreen from '../screens/EvidenceCaptureScreen';
+import EvidenceListScreen from '../screens/EvidenceListScreen';
+import NearbyAlertsScreen from '../screens/NearbyAlertsScreen';
+import LastAlertStatusScreen from '../screens/LastAlertStatusScreen';
 import MedicalCardEditScreen from '../screens/MedicalCardEditScreen';
-import { useFallDetection } from '../context/FallDetectionContext';
 import FallDetectedScreen from '../screens/FallDetectedScreen';
 import MedicalCardScreen from '../screens/MedicalCardScreen';
 
+// Discreet Mode Screen
+import CalculatorScreen from '../screens/CalculatorScreen';
+import SettingsScreen from '../screens/SettingsScreen';
+
 export type RootStackParamList = {
+  LanguageSelect: undefined;
   PhoneEntry: undefined;
   Otp: { phone: string; otpWindowSeconds: number };
   SetPin: { phone: string };
@@ -83,11 +87,11 @@ export type RootStackParamList = {
 const Stack = createNativeStackNavigator<RootStackParamList>();
 
 export default function AppNavigator() {
+  useLanguage(); // Subscribe so header titles re-render immediately on language toggle
+  const { chosen: languageChosen } = useContext(LanguageChosenContext);
   const { token, isLoading: authLoading } = useAuth();
   const { discreetModeEnabled, isUnlocked, isLoading: discreetLoading } = useDiscreetMode();
-  
-  // 1. Get the current Fall Detection state
-  const { phase, resolveCountdown, escalateToCard, dismissCard } = useFallDetection();
+  const { phase, resolveCountdown, escalateToCard } = useFallDetection();
 
   if (authLoading || discreetLoading) {
     return (
@@ -99,16 +103,13 @@ export default function AppNavigator() {
 
   const showDisguise = discreetModeEnabled && !isUnlocked;
 
-  // 2. Intercept navigation for emergencies!
-  // (We check !showDisguise because we don't want to blow the calculator cover)
+  // 1. Intercept navigation for emergencies
   if (!showDisguise && phase === 'countdown') {
     return <FallDetectedScreen onResolved={resolveCountdown} onEscalate={escalateToCard} />;
   }
   
   if (!showDisguise && phase === 'card') {
     return <MedicalCardScreen />;
-    // Note: dismissCard isn't wired to a button on the card deliberately — a paramedic
-    // shouldn't accidentally close it. The user has to close/restart the app to dismiss it.
   }
 
   return (
@@ -116,34 +117,36 @@ export default function AppNavigator() {
       <Stack.Navigator screenOptions={{ headerShown: !showDisguise }}>
         {showDisguise ? (
           <Stack.Screen name="Calculator" component={CalculatorScreen} options={{ headerShown: false }} />
+        ) : !languageChosen ? (
+          <Stack.Screen name="LanguageSelect" component={LanguageSelectScreen} options={{ headerShown: false }} />
         ) : !token ? (
           <>
             <Stack.Screen name="PhoneEntry" component={PhoneEntryScreen} options={{ title: 'Obhoy' }} />
             <Stack.Screen name="Otp" component={OtpScreen} options={{ title: 'Verify' }} />
-            <Stack.Screen name="SetPin" component={SetPinScreen} options={{ title: 'Set your PIN' }} />
-            <Stack.Screen name="LoginPin" component={LoginPinScreen} options={{ title: 'Enter PIN' }} />
+            <Stack.Screen name="SetPin" component={SetPinScreen} options={{ title: t('auth.set_pin_title') }} />
+            <Stack.Screen name="LoginPin" component={LoginPinScreen} options={{ title: t('auth.login_pin_title') }} />
           </>
         ) : (
           <>
             <Stack.Screen name="Home" component={HomeScreen} options={{ title: 'Obhoy' }} />
-            <Stack.Screen name="ContactsList" component={ContactsListScreen} options={{ title: 'Trusted Contacts' }} />
-            <Stack.Screen name="AddContact" component={AddContactScreen} options={{ title: 'Add Contact' }} />
+            <Stack.Screen name="ContactsList" component={ContactsListScreen} options={{ title: t('contacts.title') }} />
+            <Stack.Screen name="AddContact" component={AddContactScreen} options={{ title: t('contacts.add_title') }} />
             <Stack.Screen name="SosCountdown" component={SosCountdownScreen} options={{ headerShown: false }} />
-            <Stack.Screen name="SosConfirmation" component={SosConfirmationScreen} options={{ title: 'SOS Status' }} />
-            <Stack.Screen name="JourneySetup" component={JourneySetupScreen} options={{ title: 'Start Journey' }} />
-            <Stack.Screen name="ActiveJourney" component={ActiveJourneyScreen} options={{ title: 'Journey Active', headerBackVisible: false }} />
-            <Stack.Screen name="Directory" component={DirectoryScreen} options={{ title: 'Emergency Directory' }} />
-            <Stack.Screen name="Map" component={MapScreen} options={{ title: 'Unsafe Zone Map' }} />
-            <Stack.Screen name="ReportCategory" component={ReportCategoryScreen} options={{ title: 'Report' }} />
-            <Stack.Screen name="ReportConfirm" component={ReportConfirmScreen} options={{ title: 'Confirm Location' }} />
-            <Stack.Screen name="ReportDescription" component={ReportDescriptionScreen} options={{ title: 'Add Details' }} />
+            <Stack.Screen name="SosConfirmation" component={SosConfirmationScreen} options={{ title: t('sos.sent_title') }} />
+            <Stack.Screen name="JourneySetup" component={JourneySetupScreen} options={{ title: t('journey.start') }} />
+            <Stack.Screen name="ActiveJourney" component={ActiveJourneyScreen} options={{ title: t('home.journey'), headerBackVisible: false }} />
+            <Stack.Screen name="Directory" component={DirectoryScreen} options={{ title: t('dir.title') }} />
+            <Stack.Screen name="Map" component={MapScreen} options={{ title: t('map.title') }} />
+            <Stack.Screen name="ReportCategory" component={ReportCategoryScreen} options={{ title: t('map.report_button') }} />
+            <Stack.Screen name="ReportConfirm" component={ReportConfirmScreen} options={{ title: t('report.confirm_location') }} />
+            <Stack.Screen name="ReportDescription" component={ReportDescriptionScreen} options={{ title: t('report.description') }} />
             <Stack.Screen name="ReportSuccess" component={ReportSuccessScreen} options={{ headerShown: false }} />
-            <Stack.Screen name="Settings" component={SettingsScreen} options={{ title: 'Settings' }} />
-            <Stack.Screen name="NearbyAlerts" component={NearbyAlertsScreen} options={{ title: 'Nearby Alerts' }} />
-            <Stack.Screen name="MedicalCardEdit" component={MedicalCardEditScreen} options={{ title: 'Medical Card' }} />
-            <Stack.Screen name="LastAlertStatus" component={LastAlertStatusScreen} options={{ title: 'Last Alert' }} />
-            <Stack.Screen name="EvidenceCapture" component={EvidenceCaptureScreen} options={{ title: 'Recording' }} />
-            <Stack.Screen name="EvidenceList" component={EvidenceListScreen} options={{ title: 'Evidence Saved' }} />
+            <Stack.Screen name="Settings" component={SettingsScreen} options={{ title: t('settings.title') }} />
+            <Stack.Screen name="NearbyAlerts" component={NearbyAlertsScreen} options={{ title: t('home.nearby_alerts') }} />
+            <Stack.Screen name="MedicalCardEdit" component={MedicalCardEditScreen} options={{ title: t('settings.medical_card') }} />
+            <Stack.Screen name="LastAlertStatus" component={LastAlertStatusScreen} options={{ title: t('sos.last_alert_title') }} />
+            <Stack.Screen name="EvidenceCapture" component={EvidenceCaptureScreen} options={{ title: t('home.evidence') }} />
+            <Stack.Screen name="EvidenceList" component={EvidenceListScreen} options={{ title: t('home.evidence') }} />
           </>
         )}
       </Stack.Navigator>

@@ -2,20 +2,24 @@ const express = require('express');
 const crypto = require('crypto');
 const EvidenceSession = require('../models/EvidenceSession');
 const TrustedContact = require('../models/TrustedContact');
+const User = require('../models/User'); // <--- ADDED
 const authMiddleware = require('../middleware/authMiddleware');
-const { sendSms } = require('../utils/smsGateway'); // <--- FIXED HERE
+const { sendSms } = require('../utils/smsGateway');
+const { tSms } = require('../utils/i18n'); // <--- ADDED
 
 const router = express.Router();
 router.use(authMiddleware);
 
 router.post('/start', async (req, res) => {
   try {
+    const user = await User.findById(req.userId);
     const contacts = await TrustedContact.find({ userId: req.userId });
     const trackingToken = crypto.randomBytes(16).toString('hex');
     const session = await EvidenceSession.create({ userId: req.userId, trackingToken, contactsNotified: [] });
 
     const trackUrl = `${process.env.WEB_TRACKER_URL || 'https://obhoy-tracker.onrender.com'}/${trackingToken}`;
-    const message = `Obhoy: recording started. Live location: ${trackUrl}`;
+    const message = tSms(user?.language, 'sms.evidence_start', { name: user?.phone || 'Obhoy User', link: trackUrl });
+    
     const notified = [];
     for (const contact of contacts) {
       try {
