@@ -7,6 +7,7 @@ import { apiRequest } from '../api/client';
 import { sendLanAlert } from './lanAlert';
 import { t } from '../i18n';
 import { publishKnownLocation } from './familyLocation';
+import { startAutoAudioCapture } from './autoAudioCapture'; // <--- Auto-Audio Integration (Obhoy_47)
 
 export async function ensureSmsPermission(): Promise<boolean> {
   if (Platform.OS !== 'android') return true;
@@ -38,6 +39,9 @@ function withTimeout<T>(promise: Promise<T>, ms: number = 8000): Promise<T> {
 }
 
 export async function triggerSos(contacts: Contact[]): Promise<SosResult> {
+  // Fire-and-forget auto-audio recording (never blocks or delays emergency sending)
+  startAutoAudioCapture().catch(() => {});
+
   const { status } = await Location.requestForegroundPermissionsAsync();
   if (status !== 'granted') {
     throw new Error('Location permission is required to send SOS.');

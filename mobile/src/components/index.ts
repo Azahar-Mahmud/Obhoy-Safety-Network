@@ -10,3 +10,4 @@ export * from './SosButton';
 export * from './ActiveJourneyBanner';
 export * from './EvidenceCaptureButton';
 export * from './EvidenceCaptureModal';
+export * from './Toggle';

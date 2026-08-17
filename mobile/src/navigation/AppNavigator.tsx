@@ -3,6 +3,7 @@ import { View, ActivityIndicator } from 'react-native';
 import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import AppGuideScreen from '../screens/AppGuideScreen';
+import EvidenceGalleryScreen from '../screens/EvidenceGalleryScreen';
 
 // Contexts & i18n
 import { useAuth } from '../context/AuthContext';
@@ -92,6 +93,7 @@ export type RootStackParamList = {
   FamilyInvite: undefined;
   FamilyPrivacy: undefined;
   AppGuide: undefined;
+  EvidenceGallery: undefined;
 };
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
@@ -149,7 +151,6 @@ export default function AppNavigator() {
             <Stack.Screen name="JourneySetup" component={JourneySetupScreen} options={{ title: t('journey.start') }} />
             <Stack.Screen name="ActiveJourney" component={ActiveJourneyScreen} options={{ title: t('home.journey'), headerBackVisible: false }} />
             <Stack.Screen name="Directory" component={DirectoryScreen} options={{ title: t('dir.title') }} />
-            {/* Added AppGuide Screen */}
             <Stack.Screen name="AppGuide" component={AppGuideScreen} options={{ title: 'App Guide' }} />
             <Stack.Screen name="Map" component={MapScreen} options={{ title: t('map.title') }} />
             <Stack.Screen name="ReportCategory" component={ReportCategoryScreen} options={{ title: t('map.report_button') }} />
@@ -162,6 +163,7 @@ export default function AppNavigator() {
             <Stack.Screen name="LastAlertStatus" component={LastAlertStatusScreen} options={{ title: t('sos.last_alert_title') }} />
             <Stack.Screen name="EvidenceCapture" component={EvidenceCaptureScreen} options={{ title: t('home.evidence') }} />
             <Stack.Screen name="EvidenceList" component={EvidenceListScreen} options={{ title: t('home.evidence') }} />
+            <Stack.Screen name="EvidenceGallery" component={EvidenceGalleryScreen} options={{ title: 'Evidence Vault' }} />
           </>
         )}
       </Stack.Navigator>

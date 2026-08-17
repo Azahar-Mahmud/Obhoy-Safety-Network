@@ -5,14 +5,20 @@ import { useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../navigation/AppNavigator';
 import * as SecureStore from 'expo-secure-store';
+import { Feather } from '@expo/vector-icons';
 import { t, useLanguage } from '../i18n';
+
 import LanguageToggle from '../components/LanguageToggle';
 import SilentModeToggle from '../components/SilentModeToggle';
 import BatteryAlertSettings from '../components/BatteryAlertSettings';
+import { Toggle, Card, ListRow } from '../components';
+import { colors, spacing } from '../theme/theme';
+import { isAutoAudioEnabled, getAutoAudioLengthSeconds } from '../utils/autoAudioCapture';
 
 const FALL_DETECTION_KEY = 'obhoy_fall_detection_enabled';
 const FALL_SENSITIVITY_KEY = 'obhoy_fall_sensitivity';
-const AUTO_RECORD_KEY = 'obhoy_auto_record_sos';
+const AUTO_AUDIO_KEY = 'obhoy_auto_audio_enabled';
+const AUTO_AUDIO_LENGTH_KEY = 'obhoy_auto_audio_length_seconds';
 
 export default function SettingsScreen() {
   useLanguage();
@@ -20,7 +26,10 @@ export default function SettingsScreen() {
   const [busy, setBusy] = useState(false);
   const [fallEnabled, setFallEnabled] = useState(false);
   const [sensitivity, setSensitivity] = useState<'low' | 'medium' | 'high'>('medium');
-  const [autoRecordEnabled, setAutoRecordEnabled] = useState(false);
+  
+  // Auto-audio state
+  const [audioOn, setAudioOn] = useState(false);
+  const [audioLength, setAudioLength] = useState(60);
 
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
 
@@ -29,14 +38,15 @@ export default function SettingsScreen() {
     SecureStore.getItemAsync(FALL_SENSITIVITY_KEY).then((v) => {
       if (v === 'low' || v === 'medium' || v === 'high') setSensitivity(v);
     });
-    SecureStore.getItemAsync(AUTO_RECORD_KEY).then((v) => setAutoRecordEnabled(v === 'true'));
+    isAutoAudioEnabled().then(setAudioOn);
+    getAutoAudioLengthSeconds().then(setAudioLength);
   }, []);
 
   const handleDiscreetToggle = (value: boolean) => {
     if (value) {
       Alert.alert(
         'Enable Discreet Mode?',
-        'Obhoy will now open as a calculator on your home screen.\n\nType your PIN and press "=" to unlock the app.\n\nNote: The app will close or refresh to update the icon.',
+        'Obhoy will now open as a calculator on your home screen.\n\nType your PIN and press "=" to unlock the app.',
         [
           { text: t('common.cancel'), style: 'cancel' },
           {
@@ -64,14 +74,18 @@ export default function SettingsScreen() {
     await SecureStore.setItemAsync(FALL_SENSITIVITY_KEY, value);
   };
 
-  const toggleAutoRecord = async (value: boolean) => {
-    setAutoRecordEnabled(value);
-    await SecureStore.setItemAsync(AUTO_RECORD_KEY, String(value));
+  const handleAudioToggle = async (value: boolean) => {
+    setAudioOn(value);
+    await SecureStore.setItemAsync(AUTO_AUDIO_KEY, String(value));
+  };
+
+  const handleAudioLength = async (seconds: number) => {
+    setAudioLength(seconds);
+    await SecureStore.setItemAsync(AUTO_AUDIO_LENGTH_KEY, String(seconds));
   };
 
   return (
     <ScrollView style={styles.container}>
-      {/* 1. Language Toggle at Top */}
       <LanguageToggle />
 
       <View style={styles.divider} />
@@ -92,21 +106,52 @@ export default function SettingsScreen() {
 
       <View style={styles.divider} />
 
-      {/* Battery Auto-Alert */}
-      <BatteryAlertSettings />
+      {/* Auto-Record Audio during SOS */}
+      <View style={styles.row}>
+        <View style={{ flex: 1 }}>
+          <Text style={styles.label}>Auto-Record Audio on SOS</Text>
+          <Text style={styles.hint}>
+            {audioOn ? `Active — saves ${audioLength}s encrypted audio clip` : 'Off'}
+          </Text>
+        </View>
+        <Toggle value={audioOn} onChange={handleAudioToggle} />
+      </View>
+
+      {audioOn && (
+        <View style={styles.chipRow}>
+          {[30, 60, 120].map((s) => (
+            <TouchableOpacity
+              key={s}
+              style={[styles.chip, audioLength === s && styles.chipActive]}
+              onPress={() => handleAudioLength(s)}
+            >
+              <Text style={[styles.chipText, audioLength === s && styles.chipTextActive]}>
+                {s} seconds
+              </Text>
+            </TouchableOpacity>
+          ))}
+        </View>
+      )}
 
       <View style={styles.divider} />
 
-      {/* Auto-record during SOS */}
-      <View style={styles.row}>
+      {/* Evidence Vault Link */}
+      <TouchableOpacity 
+        style={styles.settingRow} 
+        onPress={() => navigation.navigate('EvidenceGallery' as any)}
+      >
         <View style={{ flex: 1 }}>
-          <Text style={styles.label}>Auto-record Video during SOS</Text>
-          <Text style={styles.hint}>
-            Automatically records video & audio locally when an SOS alert is sent.
-          </Text>
+          <Text style={styles.label}>Evidence Vault</Text>
+          <Text style={styles.hint}>View and export your encrypted photos, videos & audio.</Text>
         </View>
-        <Switch value={autoRecordEnabled} onValueChange={toggleAutoRecord} />
-      </View>
+        <Feather name="shield" size={20} color={colors.primary} style={{ marginRight: 8 }} />
+        <Text style={styles.arrow}>›</Text>
+      </TouchableOpacity>
+
+      <View style={styles.divider} />
+
+      {/* Battery Auto-Alert */}
+      <BatteryAlertSettings />
 
       <View style={styles.divider} />
 
@@ -134,20 +179,6 @@ export default function SettingsScreen() {
           ))}
         </View>
       )}
-
-      <View style={styles.divider} />
-
-      {/* Last Alert Status Link */}
-      <TouchableOpacity 
-        style={styles.settingRow} 
-        onPress={() => navigation.navigate('LastAlertStatus')}
-      >
-        <View style={{ flex: 1 }}>
-          <Text style={styles.label}>{t('sos.last_alert_title')}</Text>
-          <Text style={styles.hint}>View details of your most recent Silent SOS.</Text>
-        </View>
-        <Text style={styles.arrow}>›</Text>
-      </TouchableOpacity>
 
       <View style={styles.divider} />
 
