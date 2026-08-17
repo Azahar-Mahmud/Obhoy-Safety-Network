@@ -8,11 +8,27 @@ interface ListRowProps {
   left?: ReactNode;
   right?: ReactNode;
   onPress?: () => void;
+  onLongPress?: () => void;
+  delayLongPress?: number;
 }
 
-export function ListRow({ title, subtitle, left, right, onPress }: ListRowProps) {
+export function ListRow({
+  title,
+  subtitle,
+  left,
+  right,
+  onPress,
+  onLongPress,
+  delayLongPress,
+}: ListRowProps) {
   return (
-    <Pressable onPress={onPress} style={styles.row} disabled={!onPress}>
+    <Pressable
+      onPress={onPress}
+      onLongPress={onLongPress}
+      delayLongPress={delayLongPress}
+      style={styles.row}
+      disabled={!onPress && !onLongPress}
+    >
       {left}
       <View style={{ flex: 1, marginLeft: left ? spacing.md : 0 }}>
         <Text style={styles.title}>{title}</Text>
@@ -24,7 +40,12 @@ export function ListRow({ title, subtitle, left, right, onPress }: ListRowProps)
 }
 
 const styles = StyleSheet.create({
-  row: { flexDirection: 'row', alignItems: 'center', paddingVertical: spacing.md, minHeight: touchTarget.minimum },
+  row: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: spacing.md,
+    minHeight: touchTarget.minimum,
+  },
   title: { fontSize: 16, fontWeight: '700', color: colors.textPrimary },
   subtitle: { fontSize: 13, color: colors.textSecondary, marginTop: 2 },
 });

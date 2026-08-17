@@ -151,4 +151,23 @@ router.post('/:id/verify', async (req, res) => {
   }
 });
 
+// --- STEP 2: Report Deletion (Supports 6s Undo) ---
+router.delete('/:id', async (req, res) => {
+  try {
+    const report = await IncidentReport.findById(req.params.id);
+    if (!report) return res.status(404).json({ error: 'Report not found.' });
+
+    // Ensure the user owns this report
+    if (report.reportedBy.toString() !== req.userId) {
+      return res.status(403).json({ error: 'You can only delete your own reports.' });
+    }
+
+    await report.deleteOne();
+    res.json({ success: true });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Something went wrong.' });
+  }
+});
+
 module.exports = router;
