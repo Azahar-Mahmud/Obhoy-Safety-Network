@@ -1,15 +1,18 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, FlatList, Linking } from 'react-native';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
+import { Feather } from '@expo/vector-icons';
 import { RootStackParamList } from '../navigation/AppNavigator';
 import * as SecureStore from 'expo-secure-store';
 import { t, useLanguage } from '../i18n';
+import { EvidenceCaptureModal } from '../components';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'SosConfirmation'>;
 
 export default function SosConfirmationScreen({ route, navigation }: Props) {
   useLanguage();
   const { channel, contactsNotified, error } = route.params;
+  const [showEvidenceCapture, setShowEvidenceCapture] = useState(false);
 
   useEffect(() => {
     if (channel !== 'failed') {
@@ -25,7 +28,6 @@ export default function SosConfirmationScreen({ route, navigation }: Props) {
     }
   }, [channel, navigation]);
 
-  // Honest, specific channel descriptions
   const getChannelDescription = () => {
     const successfulContacts = (contactsNotified || []).filter((c) => c.status === 'sent').map((c) => c.name).join(', ');
     
@@ -60,10 +62,16 @@ export default function SosConfirmationScreen({ route, navigation }: Props) {
       
       <Text style={styles.subtitle}>{getChannelDescription()}</Text>
 
-      {/* Always-visible direct emergency call button */}
-      <TouchableOpacity style={styles.emergencyCallButton} onPress={handleCall999}>
-        <Text style={styles.emergencyCallText}>📞 Call 999 (National Emergency)</Text>
-      </TouchableOpacity>
+      {/* Row with Emergency Call + Quick Evidence Capture */}
+      <View style={styles.actionRow}>
+        <TouchableOpacity style={styles.emergencyCallButton} onPress={handleCall999}>
+          <Text style={styles.emergencyCallText}>📞 Call 999</Text>
+        </TouchableOpacity>
+        <TouchableOpacity style={styles.recordEvidenceButton} onPress={() => setShowEvidenceCapture(true)}>
+          <Feather name="camera" size={18} color="#FFFFFF" />
+          <Text style={styles.recordEvidenceText}>Capture Evidence</Text>
+        </TouchableOpacity>
+      </View>
 
       <Text style={styles.sectionHeader}>{t('home.contacts')}</Text>
       
@@ -83,6 +91,12 @@ export default function SosConfirmationScreen({ route, navigation }: Props) {
       <TouchableOpacity style={styles.button} onPress={() => navigation.popToTop()}>
         <Text style={styles.buttonText}>{t('common.done')}</Text>
       </TouchableOpacity>
+
+      {/* Manual Evidence Capture Modal */}
+      <EvidenceCaptureModal
+        visible={showEvidenceCapture}
+        onClose={() => setShowEvidenceCapture(false)}
+      />
     </View>
   );
 }
@@ -92,8 +106,11 @@ const styles = StyleSheet.create({
   title: { fontSize: 24, fontWeight: 'bold', color: '#16A34A', marginTop: 20, marginBottom: 8 },
   titleFail: { color: '#DC2626' },
   subtitle: { fontSize: 14, color: '#374151', marginBottom: 16, lineHeight: 20 },
-  emergencyCallButton: { backgroundColor: '#DC2626', borderRadius: 8, padding: 14, alignItems: 'center', marginBottom: 20 },
-  emergencyCallText: { color: '#fff', fontWeight: 'bold', fontSize: 16 },
+  actionRow: { flexDirection: 'row', gap: 10, marginBottom: 20 },
+  emergencyCallButton: { flex: 1, backgroundColor: '#DC2626', borderRadius: 8, padding: 14, alignItems: 'center', justifyContent: 'center' },
+  emergencyCallText: { color: '#fff', fontWeight: 'bold', fontSize: 15 },
+  recordEvidenceButton: { flex: 1, backgroundColor: '#6B21A8', borderRadius: 8, padding: 14, flexDirection: 'row', gap: 6, alignItems: 'center', justifyContent: 'center' },
+  recordEvidenceText: { color: '#fff', fontWeight: 'bold', fontSize: 14 },
   sectionHeader: { fontSize: 16, fontWeight: 'bold', color: '#111827', marginBottom: 8 },
   contactRow: { flexDirection: 'row', justifyContent: 'space-between', backgroundColor: '#EDE9FE', borderRadius: 8, padding: 14, marginBottom: 8, minHeight: 48, alignItems: 'center' },
   contactName: { fontSize: 16, color: '#111827' },

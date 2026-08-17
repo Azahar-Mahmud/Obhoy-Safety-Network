@@ -14,14 +14,16 @@ import { ensureSmsPermission } from '../utils/sos';
 import { apiRequest } from '../api/client';
 import { t, useLanguage } from '../i18n';
 
-// Obhoy_38 Shared Design Components
+// Obhoy_38 & 46 Shared Design Components
 import { 
   ScreenHeader, 
   Card, 
   Pill, 
   SosButton, 
   ActiveJourneyBanner, 
-  ListRow 
+  ListRow,
+  EvidenceCaptureButton,
+  EvidenceCaptureModal
 } from '../components';
 import { colors, spacing, typography } from '../theme/theme';
 
@@ -32,8 +34,10 @@ export default function HomeScreen({ navigation }: Props) {
   const { signOut } = useAuth();
   const { silentModeEnabled } = useSilentMode();
   const [activeJourney, setActiveJourney] = useState<any>(null);
+  
+  // State for manual evidence capture modal
+  const [showEvidenceCapture, setShowEvidenceCapture] = useState(false);
 
-  // Sync contacts and active journey on screen focus
   useFocusEffect(
     useCallback(() => {
       apiRequest('/contacts')
@@ -51,7 +55,6 @@ export default function HomeScreen({ navigation }: Props) {
     ensureSmsPermission();
   }, []);
 
-  // --- SOS TRIGGER LOGIC ---
   const handleSosTrigger = () => {
     if (silentModeEnabled) {
       runSilentSos();
@@ -67,121 +70,123 @@ export default function HomeScreen({ navigation }: Props) {
   const isJourneyActive = !!activeJourney;
 
   return (
-    <ScrollView contentContainerStyle={styles.content}>
-      {/* 1. Header with dynamic status pill */}
-      <ScreenHeader 
-        title="Obhoy"
-        subtitle={isJourneyActive ? 'Journey in progress' : 'Protected & ready'}
-        right={
-          <Pill 
-            label={isJourneyActive ? 'On a journey' : 'At rest'} 
-            tone={isJourneyActive ? 'caution' : 'safe'} 
+    <View style={{ flex: 1 }}>
+      <ScrollView contentContainerStyle={styles.content}>
+        {/* 1. Header with dynamic status pill & Quick Evidence Capture Button */}
+        <ScreenHeader 
+          title="Obhoy"
+          subtitle={isJourneyActive ? 'Journey in progress' : 'Protected & ready'}
+          right={
+            <View style={styles.headerRightGroup}>
+              <Pill 
+                label={isJourneyActive ? 'On a journey' : 'At rest'} 
+                tone={isJourneyActive ? 'caution' : 'safe'} 
+              />
+              <EvidenceCaptureButton onPress={() => setShowEvidenceCapture(true)} size={38} />
+            </View>
+          } 
+        />
+
+        {/* 2. Active Journey Banner (if running) */}
+        <ActiveJourneyBanner 
+          activeJourney={activeJourney} 
+          onPress={() => navigation.navigate('ActiveJourney', {
+            journeyId: activeJourney._id,
+            checkinIntervalMinutes: activeJourney.checkinIntervalMinutes,
+          })}
+        />
+
+        {/* 3. Hero SOS Button */}
+        <View style={styles.heroWrap}>
+          <SosButton onTrigger={handleSosTrigger} onPressHelp={handleSosPressHelp} />
+        </View>
+
+        {/* 4. Journey Card */}
+        <Pressable 
+          onPress={() => {
+            if (isJourneyActive) {
+              navigation.navigate('ActiveJourney', {
+                journeyId: activeJourney._id,
+                checkinIntervalMinutes: activeJourney.checkinIntervalMinutes,
+              });
+            } else {
+              navigation.navigate('JourneySetup');
+            }
+          }}
+        >
+          <Card>
+            <View style={styles.cardHeaderRow}>
+              <Text style={styles.cardTitle}>{t('home.journey')}</Text>
+              <Feather name={isJourneyActive ? 'navigation' : 'arrow-right'} size={20} color={colors.primary} />
+            </View>
+            <Text style={styles.cardSubtitle}>
+              {isJourneyActive 
+                ? `Headed to ${activeJourney.destinationLabel || 'destination'} — tap to check in`
+                : 'Set destination, automated check-ins & safe zones'}
+            </Text>
+          </Card>
+        </Pressable>
+
+        {/* 5. Safety Map Card */}
+        <Pressable onPress={() => navigation.navigate('Map')}>
+          <Card>
+            <View style={styles.cardHeaderRow}>
+              <Text style={styles.cardTitle}>{t('home.map')}</Text>
+              <Feather name="map-pin" size={20} color={colors.primary} />
+            </View>
+            <Text style={styles.cardSubtitle}>
+              View safety heatmaps, community check-ins & live incident alerts
+            </Text>
+          </Card>
+        </Pressable>
+
+        {/* 6. Essential Actions Card */}
+        <Card>
+          <ListRow 
+            title={t('home.contacts')}
+            subtitle="Manage trusted contacts & SMS alerts"
+            left={<Feather name="users" size={20} color={colors.primary} style={styles.rowIcon} />}
+            right={<Feather name="chevron-right" size={18} color={colors.textSecondary} />}
+            onPress={() => navigation.navigate('ContactsList')}
           />
-        } 
-      />
-
-      {/* 2. Active Journey Banner (if running) */}
-      <ActiveJourneyBanner 
-        activeJourney={activeJourney} 
-        onPress={() => navigation.navigate('ActiveJourney', {
-          journeyId: activeJourney._id,
-          checkinIntervalMinutes: activeJourney.checkinIntervalMinutes,
-        })}
-      />
-
-      {/* 3. Hero SOS Button */}
-      <View style={styles.heroWrap}>
-        <SosButton onTrigger={handleSosTrigger} onPressHelp={handleSosPressHelp} />
-      </View>
-
-      {/* 4. Journey Card */}
-      <Pressable 
-        onPress={() => {
-          if (isJourneyActive) {
-            navigation.navigate('ActiveJourney', {
-              journeyId: activeJourney._id,
-              checkinIntervalMinutes: activeJourney.checkinIntervalMinutes,
-            });
-          } else {
-            navigation.navigate('JourneySetup');
-          }
-        }}
-      >
-        <Card>
-          <View style={styles.cardHeaderRow}>
-            <Text style={styles.cardTitle}>{t('home.journey')}</Text>
-            <Feather name={isJourneyActive ? 'navigation' : 'arrow-right'} size={20} color={colors.primary} />
-          </View>
-          <Text style={styles.cardSubtitle}>
-            {isJourneyActive 
-              ? `Headed to ${activeJourney.destinationLabel || 'destination'} — tap to check in`
-              : 'Set destination, automated check-ins & safe zones'}
-          </Text>
+          <View style={styles.divider} />
+          <ListRow 
+            title={t('home.directory')}
+            subtitle="999, Women Helpline, Emergency Hotlines"
+            left={<Feather name="phone-call" size={20} color={colors.primary} style={styles.rowIcon} />}
+            right={<Feather name="chevron-right" size={18} color={colors.textSecondary} />}
+            onPress={() => navigation.navigate('Directory')}
+          />
+          <View style={styles.divider} />
+          <ListRow 
+            title={t('home.nearby_alerts')}
+            subtitle="View local security notifications"
+            left={<Feather name="bell" size={20} color={colors.primary} style={styles.rowIcon} />}
+            right={<Feather name="chevron-right" size={18} color={colors.textSecondary} />}
+            onPress={() => navigation.navigate('NearbyAlerts')}
+          />
+          <View style={styles.divider} />
+          <ListRow 
+            title={t('home.settings')}
+            subtitle="Language, Discreet Mode, Fall Detection"
+            left={<Feather name="settings" size={20} color={colors.primary} style={styles.rowIcon} />}
+            right={<Feather name="chevron-right" size={18} color={colors.textSecondary} />}
+            onPress={() => navigation.navigate('Settings')}
+          />
         </Card>
-      </Pressable>
 
-      {/* 5. Safety Map Card */}
-      <Pressable onPress={() => navigation.navigate('Map')}>
-        <Card>
-          <View style={styles.cardHeaderRow}>
-            <Text style={styles.cardTitle}>{t('home.map')}</Text>
-            <Feather name="map-pin" size={20} color={colors.primary} />
-          </View>
-          <Text style={styles.cardSubtitle}>
-            View safety heatmaps, community check-ins & live incident alerts
-          </Text>
-        </Card>
-      </Pressable>
+        {/* Logout link */}
+        <Pressable style={styles.signOutButton} onPress={signOut}>
+          <Text style={styles.signOutText}>{t('auth.logout')}</Text>
+        </Pressable>
+      </ScrollView>
 
-      {/* 6. Essential Actions Card */}
-      <Card>
-        <ListRow 
-          title={t('home.contacts')}
-          subtitle="Manage trusted contacts & SMS alerts"
-          left={<Feather name="users" size={20} color={colors.primary} style={styles.rowIcon} />}
-          right={<Feather name="chevron-right" size={18} color={colors.textSecondary} />}
-          onPress={() => navigation.navigate('ContactsList')}
-        />
-        <View style={styles.divider} />
-        <ListRow 
-          title={t('home.directory')}
-          subtitle="999, Women Helpline, Emergency Hotlines"
-          left={<Feather name="phone-call" size={20} color={colors.primary} style={styles.rowIcon} />}
-          right={<Feather name="chevron-right" size={18} color={colors.textSecondary} />}
-          onPress={() => navigation.navigate('Directory')}
-        />
-        <View style={styles.divider} />
-        <ListRow 
-          title={t('home.nearby_alerts')}
-          subtitle="View local security notifications"
-          left={<Feather name="bell" size={20} color={colors.primary} style={styles.rowIcon} />}
-          right={<Feather name="chevron-right" size={18} color={colors.textSecondary} />}
-          onPress={() => navigation.navigate('NearbyAlerts')}
-        />
-        <View style={styles.divider} />
-        <ListRow 
-          title={t('home.settings')}
-          subtitle="Language, Discreet Mode, Fall Detection"
-          left={<Feather name="settings" size={20} color={colors.primary} style={styles.rowIcon} />}
-          right={<Feather name="chevron-right" size={18} color={colors.textSecondary} />}
-          onPress={() => navigation.navigate('Settings')}
-        />
-      </Card>
-
-      {/* Logout link */}
-      <Pressable style={styles.signOutButton} onPress={signOut}>
-        <Text style={styles.signOutText}>{t('auth.logout')}</Text>
-      </Pressable>
-
-      {/* DISCREET EVIDENCE CAPTURE BUTTON */}
-      <Pressable
-        style={styles.evidenceButton}
-        onLongPress={() => (navigation as any).navigate('EvidenceCapture')}
-        delayLongPress={1500}
-      >
-        <Text style={styles.evidenceButtonText}>⏺</Text>
-      </Pressable>
-    </ScrollView>
+      {/* Manual Evidence Capture Modal */}
+      <EvidenceCaptureModal
+        visible={showEvidenceCapture}
+        onClose={() => setShowEvidenceCapture(false)}
+      />
+    </View>
   );
 }
 
@@ -190,6 +195,11 @@ const styles = StyleSheet.create({
     padding: spacing.lg, 
     paddingBottom: spacing.xxl, 
     backgroundColor: '#FAFAFA' 
+  },
+  headerRightGroup: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
   },
   heroWrap: { 
     alignItems: 'center', 
@@ -226,21 +236,5 @@ const styles = StyleSheet.create({
     color: colors.textSecondary, 
     fontSize: 15,
     fontWeight: '600',
-  },
-  evidenceButton: { 
-    position: 'absolute', 
-    bottom: 24, 
-    right: 24, 
-    width: 44, 
-    height: 44, 
-    borderRadius: 22, 
-    backgroundColor: '#EDE9FE', 
-    justifyContent: 'center', 
-    alignItems: 'center',
-    elevation: 3,
-  },
-  evidenceButtonText: { 
-    fontSize: 16, 
-    color: '#6B7280' 
   },
 });
