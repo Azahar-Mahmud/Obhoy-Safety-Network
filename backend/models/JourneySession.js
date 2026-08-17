@@ -5,6 +5,14 @@ const journeySessionSchema = new mongoose.Schema({
   trackingToken: { type: String, required: true, unique: true },
   status: { type: String, enum: ['active', 'arrived', 'overdue_alerted', 'cancelled'], default: 'active' },
   destinationLabel: { type: String, default: '' },
+
+  // --- STEP 1: Real Coordinates for Origin and Destination (Obhoy_48) ---
+  destinationLat: { type: Number, default: null },
+  destinationLng: { type: Number, default: null },
+  originLat: { type: Number, default: null },
+  originLng: { type: Number, default: null },
+  // ----------------------------------------------------------------------
+
   currentLocation: {
     lat: Number,
     lng: Number,
@@ -14,10 +22,8 @@ const journeySessionSchema = new mongoose.Schema({
   checkinIntervalMinutes: { type: Number, default: 30 },
   lastCheckinAt: { type: Date, default: Date.now },
   
-  // --- STEP 2: New fields for Scheduled Check-in (Obhoy_26) ---
   mode: { type: String, enum: ['interval', 'scheduled'], default: 'interval' },
   scheduledDeadline: { type: Date, default: null },
-  // -------------------------------------------------------------
 
   contactsNotified: [{
     contactId: mongoose.Schema.Types.ObjectId,

@@ -24,7 +24,8 @@ router.post('/start', async (req, res) => {
   try {
     const { 
       destinationLabel, checkinIntervalMinutes, lat, lng, accuracy, 
-      geofenceEnabled, geofenceRadiusMeters, mode, scheduledDeadline 
+      geofenceEnabled, geofenceRadiusMeters, mode, scheduledDeadline,
+      destinationLat, destinationLng, originLat, originLng // <--- Added for Obhoy_48
     } = req.body;
     
     const trackingToken = crypto.randomBytes(16).toString('hex');
@@ -33,6 +34,11 @@ router.post('/start', async (req, res) => {
       userId: req.userId,
       trackingToken,
       destinationLabel: destinationLabel || '',
+      // Store real coordinates
+      destinationLat: typeof destinationLat === 'number' ? destinationLat : null,
+      destinationLng: typeof destinationLng === 'number' ? destinationLng : null,
+      originLat: typeof originLat === 'number' ? originLat : (typeof lat === 'number' ? lat : null),
+      originLng: typeof originLng === 'number' ? originLng : (typeof lng === 'number' ? lng : null),
       mode: mode || 'interval',
       scheduledDeadline: mode === 'scheduled' && scheduledDeadline ? new Date(scheduledDeadline) : null,
       checkinIntervalMinutes: checkinIntervalMinutes || 30,
@@ -43,16 +49,10 @@ router.post('/start', async (req, res) => {
       geofenceCenter: geofenceEnabled && typeof lat === 'number' ? { lat, lng } : undefined,
     });
     
-    // Send the tracker link at journey start
     const trackUrl = `${process.env.WEB_TRACKER_URL}/${trackingToken}`;
     const contacts = await TrustedContact.find({ userId: req.userId });
     const user = await User.findById(req.userId);
-    
-    const startMessage = tSms(user.language, 'sms.journey_start', {
-      name: user.phone,
-      destination: destinationLabel || 'destination',
-      link: trackUrl,
-    });
+    const startMessage = `Obhoy: ${user.phone} started a journey${destinationLabel ? ' to ' + destinationLabel : ''}. Track: ${trackUrl}`;
     
     for (const contact of contacts) {
       try {

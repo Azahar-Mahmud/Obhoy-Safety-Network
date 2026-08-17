@@ -4,6 +4,7 @@ import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import AppGuideScreen from '../screens/AppGuideScreen';
 import EvidenceGalleryScreen from '../screens/EvidenceGalleryScreen';
+import MapPointPickerScreen from '../screens/MapPointPickerScreen';
 
 // Contexts & i18n
 import { useAuth } from '../context/AuthContext';
@@ -69,7 +70,17 @@ export type RootStackParamList = {
     meshBroadcastSent?: boolean;
     error?: string;
   };
-  JourneySetup: undefined;
+  JourneySetup: { 
+    pickedLat?: number; 
+    pickedLng?: number; 
+    targetField?: 'from' | 'to';
+  } | undefined;
+  MapPointPicker: { 
+    title: string; 
+    initialLat?: number; 
+    initialLng?: number; 
+    targetField: 'from' | 'to';
+  };
   ActiveJourney: { 
     journeyId: string; 
     checkinIntervalMinutes: number; 
@@ -164,6 +175,7 @@ export default function AppNavigator() {
             <Stack.Screen name="EvidenceCapture" component={EvidenceCaptureScreen} options={{ title: t('home.evidence') }} />
             <Stack.Screen name="EvidenceList" component={EvidenceListScreen} options={{ title: t('home.evidence') }} />
             <Stack.Screen name="EvidenceGallery" component={EvidenceGalleryScreen} options={{ title: 'Evidence Vault' }} />
+            <Stack.Screen name="MapPointPicker" component={MapPointPickerScreen} options={{ title: 'Select Location' }} />
           </>
         )}
       </Stack.Navigator>
