@@ -1,8 +1,16 @@
 import React from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, Linking, FlatList } from 'react-native';
+import { NativeStackScreenProps } from '@react-navigation/native-stack';
+import { Feather } from '@expo/vector-icons';
+import { RootStackParamList } from '../navigation/AppNavigator';
+
+import { Card, ListRow } from '../components';
+import { colors, spacing, typography } from '../theme/theme';
 import { t, useLanguage } from '../i18n';
 
-export default function DirectoryScreen() {
+type Props = NativeStackScreenProps<RootStackParamList, 'Directory'>;
+
+export default function DirectoryScreen({ navigation }: Props) {
   useLanguage();
 
   const numbers = [
@@ -19,19 +27,35 @@ export default function DirectoryScreen() {
       <FlatList
         data={numbers}
         keyExtractor={(item) => item.number}
+        contentContainerStyle={styles.listContent}
         renderItem={({ item }) => (
           <TouchableOpacity style={styles.card} onPress={() => call(item.number)}>
             <Text style={styles.label}>{item.label}</Text>
             <Text style={styles.number}>{item.number}</Text>
           </TouchableOpacity>
         )}
+        ListFooterComponent={
+          <View style={styles.footer}>
+            <Text style={styles.sectionHeader}>Help & Guides</Text>
+            <Card>
+              <ListRow
+                title="How Obhoy Works"
+                subtitle="A quick guide to staying safe"
+                left={<Feather name="book-open" size={22} color={colors.primary} style={styles.rowIcon} />}
+                right={<Feather name="chevron-right" size={18} color={colors.textSecondary} />}
+                onPress={() => navigation.navigate('AppGuide')}
+              />
+            </Card>
+          </View>
+        }
       />
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, padding: 16, backgroundColor: '#FFFFFF' },
+  container: { flex: 1, backgroundColor: '#FAFAFA' },
+  listContent: { padding: spacing.lg, paddingBottom: spacing.xxl },
   card: {
     backgroundColor: '#EDE9FE',
     borderRadius: 8,
@@ -41,7 +65,11 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
+    elevation: 1,
   },
-  label: { fontSize: 16, color: '#111827', flex: 1, marginRight: 12 },
-  number: { fontSize: 24, fontWeight: 'bold', color: '#6B21A8' },
+  label: { fontSize: 16, color: '#111827', flex: 1, marginRight: 12, fontWeight: '600' },
+  number: { fontSize: 24, fontWeight: 'bold', color: colors.primary },
+  footer: { marginTop: spacing.md },
+  sectionHeader: { ...typography.sectionHeading, color: colors.textSecondary, fontSize: 16, marginBottom: spacing.sm },
+  rowIcon: { marginRight: spacing.sm },
 });
