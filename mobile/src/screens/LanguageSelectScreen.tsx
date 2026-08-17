@@ -1,7 +1,7 @@
 import React, { useContext } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import { setLanguage } from '../i18n';
-import { LanguageChosenContext } from '../../App';
+import { LanguageChosenContext } from '../context/LanguageChosenContext';
 
 export default function LanguageSelectScreen() {
   const { markChosen } = useContext(LanguageChosenContext);

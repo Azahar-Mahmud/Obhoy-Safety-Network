@@ -1,58 +1,86 @@
 import './src/polyfills';
-import React, { useEffect, useState, createContext } from 'react';
+import React, { useEffect, useState } from 'react';
 import { AppState, AppStateStatus } from 'react-native';
+import * as SplashScreen from 'expo-splash-screen';
+
 import { recordLastActive } from './src/utils/lastActive';
 import { loadLanguage } from './src/i18n';
-import { publishLocation } from './src/utils/familyLocation'; // <--- ADDED for Obhoy_31 Rung 1
+import { publishLocation } from './src/utils/familyLocation';
 
+import { LanguageChosenContext } from './src/context/LanguageChosenContext';
 import { SilentModeProvider } from './src/context/SilentModeContext';
 import { FallDetectionProvider } from './src/context/FallDetectionContext';
 import { AuthProvider } from './src/context/AuthContext';
-import { DiscreetModeProvider } from './src/context/DiscreetModeContext';
+import { DiscreetModeProvider, useDiscreetMode } from './src/context/DiscreetModeContext';
 import { LanAlertProvider } from './src/context/LanAlertContext';
 import { MeshProvider } from './src/context/MeshContext';
 import AppNavigator from './src/navigation/AppNavigator';
+import IntroScreen from './src/screens/IntroScreen';
 
-export const LanguageChosenContext = createContext<{
-  chosen: boolean;
-  markChosen: () => void;
-}>({ chosen: false, markChosen: () => {} });
+SplashScreen.preventAutoHideAsync().catch(() => {});
+
+// --- STARTUP GATE ---
+// Reads Discreet Mode from context to decide whether to show the intro or launch straight into the disguise
+function StartupGate() {
+  const { discreetModeEnabled, isLoading } = useDiscreetMode();
+  const [showIntro, setShowIntro] = useState(true);
+
+  useEffect(() => {
+    if (isLoading) return; // Still loading from SecureStore
+    
+    // If Discreet Mode is ON, skip intro immediately
+    if (discreetModeEnabled) {
+      setShowIntro(false);
+      return;
+    }
+
+    // If Discreet Mode is OFF, show the 1.5s branded intro
+    const timer = setTimeout(() => setShowIntro(false), 1500);
+    return () => clearTimeout(timer);
+  }, [isLoading, discreetModeEnabled]);
+
+  if (isLoading) return null;
+  if (showIntro && !discreetModeEnabled) return <IntroScreen />;
+  
+  return <AppNavigator />;
+}
 
 export default function App() {
-  const [languageReady, setLanguageReady] = useState(false);
+  const [appReady, setAppReady] = useState(false);
   const [languageChosen, setLanguageChosen] = useState<boolean>(false);
 
   useEffect(() => {
-    loadLanguage().then((lang) => {
-      setLanguageChosen(lang !== null);
-      setLanguageReady(true);
-    });
+    async function prepare() {
+      try {
+        const lang = await loadLanguage();
+        setLanguageChosen(lang !== null);
+      } catch (e) {
+        console.warn('Startup init error:', e);
+      } finally {
+        setAppReady(true);
+        await SplashScreen.hideAsync().catch(() => {});
+      }
+    }
+    prepare();
   }, []);
 
-  // === TRACK LAST ACTIVE TIME & OPPORTUNISTIC LOCATION PUBLISH ===
   useEffect(() => {
     recordLastActive();
-    publishLocation(); // Rung 1 initial
-    
+    publishLocation();
     const subscription = AppState.addEventListener('change', (nextState: AppStateStatus) => {
       if (nextState === 'active') {
         recordLastActive();
-        publishLocation(); // Rung 1 on foreground transition
+        publishLocation();
       }
     });
-    
     return () => subscription.remove();
   }, []);
-  // ===============================================================
 
-  if (!languageReady) return null;
+  if (!appReady) return null;
 
   return (
     <LanguageChosenContext.Provider
-      value={{
-        chosen: languageChosen,
-        markChosen: () => setLanguageChosen(true),
-      }}
+      value={{ chosen: languageChosen, markChosen: () => setLanguageChosen(true) }}
     >
       <AuthProvider>
         <DiscreetModeProvider>
@@ -60,7 +88,7 @@ export default function App() {
             <LanAlertProvider>
               <MeshProvider>
                 <FallDetectionProvider>
-                  <AppNavigator />
+                  <StartupGate />
                 </FallDetectionProvider>
               </MeshProvider>
             </LanAlertProvider>

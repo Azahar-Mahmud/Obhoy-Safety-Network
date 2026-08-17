@@ -8,7 +8,7 @@ import { useAuth } from '../context/AuthContext';
 import { useDiscreetMode } from '../context/DiscreetModeContext';
 import { useFallDetection } from '../context/FallDetectionContext';
 import { useLanguage, t } from '../i18n';
-import { LanguageChosenContext } from '../../App';
+import { LanguageChosenContext } from '../context/LanguageChosenContext';
 
 // First-Run Screen
 import LanguageSelectScreen from '../screens/LanguageSelectScreen';

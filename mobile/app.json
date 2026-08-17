@@ -11,7 +11,7 @@
     },
     "android": {
       "adaptiveIcon": {
-        "backgroundColor": "#E6F4FE",
+        "backgroundColor": "#6B21A8",
         "foregroundImage": "./assets/android-icon-foreground.png",
         "backgroundImage": "./assets/android-icon-background.png",
         "monochromeImage": "./assets/android-icon-monochrome.png"
@@ -46,11 +46,26 @@
       "expo-secure-store",
       "./plugins/withDiscreetMode.js",
       "./plugins/withObhoyReleaseSigning.js",
+      [
+        "expo-splash-screen",
+        {
+          "backgroundColor": "#6B21A8",
+          "image": "./assets/splash-icon.png",
+          "imageWidth": 220
+        }
+      ],
       "expo-nearby-connections",
       "expo-background-task",
       "expo-camera",
       "expo-sharing",
-      "@react-native-community/datetimepicker"
+      "@react-native-community/datetimepicker",
+      [
+        "expo-notifications",
+        {
+          "icon": "./assets/notification-icon.png",
+          "color": "#6B21A8"
+        }
+      ]
     ]
   }
 }
