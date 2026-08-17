@@ -42,16 +42,18 @@ export default function HomeScreen({ navigation }: Props) {
     ensureSmsPermission();
   }, []);
 
-  const handleSosPress = () => {
-    if (!silentModeEnabled) {
+  // --- ANTI-SLIP: Hold for 900ms to trigger SOS ---
+  const handleSosLongPress = () => {
+    if (silentModeEnabled) {
+      runSilentSos(); 
+    } else {
       navigation.navigate('SosCountdown');
     }
   };
 
-  const handleSosLongPress = () => {
-    if (silentModeEnabled) {
-      runSilentSos(); 
-    }
+  // Brief touch gives helpful feedback instead of accidentally firing an emergency
+  const handleSosPress = () => {
+    Alert.alert('Obhoy SOS', 'Press and hold the SOS button for 1 second to trigger an emergency alert.');
   };
 
   const handleSafeCheckin = async () => {
@@ -66,13 +68,16 @@ export default function HomeScreen({ navigation }: Props) {
     <ScrollView contentContainerStyle={styles.container}>
       <Text style={styles.title}>Obhoy</Text>
 
+      {/* SOS Button with 900ms Anti-Slip Press-and-Hold */}
       <TouchableOpacity 
         style={styles.sosButton} 
         onPress={handleSosPress}
         onLongPress={handleSosLongPress}
-        delayLongPress={2000}
+        delayLongPress={900}
+        activeOpacity={0.8}
       >
         <Text style={styles.sosText}>{t('home.sos')}</Text>
+        <Text style={styles.sosSubtext}>HOLD 1s</Text>
       </TouchableOpacity>
 
       <TouchableOpacity style={styles.safeCheckinButton} onPress={handleSafeCheckin}>
@@ -140,7 +145,8 @@ const styles = StyleSheet.create({
   container: { padding: 24, justifyContent: 'center', alignItems: 'center' },
   title: { fontSize: 28, fontWeight: 'bold', color: '#6B21A8', marginBottom: 20 },
   sosButton: { width: 160, height: 160, borderRadius: 80, backgroundColor: '#DC2626', justifyContent: 'center', alignItems: 'center', marginBottom: 12, elevation: 4 },
-  sosText: { color: '#fff', fontSize: 32, fontWeight: 'bold' },
+  sosText: { color: '#fff', fontSize: 30, fontWeight: 'bold' },
+  sosSubtext: { color: '#FEF2F2', fontSize: 11, fontWeight: 'bold', marginTop: 2, opacity: 0.9 },
   safeCheckinButton: { backgroundColor: '#16A34A', borderRadius: 8, padding: 14, minHeight: 48, alignItems: 'center', width: '100%', marginBottom: 16 },
   safeCheckinText: { color: '#fff', fontSize: 16, fontWeight: 'bold' },
   journeyButton: { backgroundColor: '#D97706', borderRadius: 8, padding: 16, minHeight: 52, alignItems: 'center', width: '100%', marginBottom: 12 },

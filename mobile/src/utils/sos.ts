@@ -6,7 +6,7 @@ import { PermissionsAndroid, Platform } from 'react-native';
 import { apiRequest } from '../api/client';
 import { sendLanAlert } from './lanAlert';
 import { t } from '../i18n';
-import { publishKnownLocation } from './familyLocation'; // <--- ADDED for Obhoy_31 Rung 3
+import { publishKnownLocation } from './familyLocation';
 
 export async function ensureSmsPermission(): Promise<boolean> {
   if (Platform.OS !== 'android') return true;
@@ -23,11 +23,19 @@ type Contact = { name: string; phone: string };
 type NotifyResult = { name: string; phone: string; status: 'sent' | 'failed' };
 
 export type SosResult = {
-  channel: 'backend' | 'native' | 'lan' | 'mesh';
+  channel: 'backend' | 'native' | 'lan' | 'mesh' | 'failed';
   contactsNotified: NotifyResult[];
   lanBroadcastSent?: boolean;
   meshBroadcastSent?: boolean;
 };
+
+// Helper: 8-second timeout promise race for SOS-specific fast failover
+function withTimeout<T>(promise: Promise<T>, ms: number = 8000): Promise<T> {
+  return Promise.race([
+    promise,
+    new Promise<T>((_, reject) => setTimeout(() => reject(new Error('SOS_TIMEOUT')), ms)),
+  ]);
+}
 
 export async function triggerSos(contacts: Contact[]): Promise<SosResult> {
   const { status } = await Location.requestForegroundPermissionsAsync();
@@ -35,75 +43,112 @@ export async function triggerSos(contacts: Contact[]): Promise<SosResult> {
     throw new Error('Location permission is required to send SOS.');
   }
 
+  // --- 1. GPS FAST-PATH: Grab cached position instantly ---
   let lat: number, lng: number, accuracy: number;
-  try {
-    const position = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.High });
-    lat = position.coords.latitude;
-    lng = position.coords.longitude;
-    accuracy = position.coords.accuracy ?? 0;
-  } catch {
-    const lastKnown = await Location.getLastKnownPositionAsync({ maxAge: 86400000 });
-    if (!lastKnown) {
-      throw new Error('Current location is unavailable. Make sure location services are enabled.');
-    }
+  const lastKnown = await Location.getLastKnownPositionAsync().catch(() => null);
+  
+  if (lastKnown) {
     lat = lastKnown.coords.latitude;
     lng = lastKnown.coords.longitude;
     accuracy = lastKnown.coords.accuracy ?? 0;
+  } else {
+    // Fallback if device has no cached location
+    const fresh = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
+    lat = fresh.coords.latitude;
+    lng = fresh.coords.longitude;
+    accuracy = fresh.coords.accuracy ?? 0;
   }
 
-  // Rung 3: Opportunistic family publish using fix already obtained (fire-and-forget)
+  // Request fresh fix in background to publish if it refines (fire-and-forget)
   publishKnownLocation(lat, lng, accuracy);
+  Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced })
+    .then((refreshed) => {
+      if (refreshed) publishKnownLocation(refreshed.coords.latitude, refreshed.coords.longitude, refreshed.coords.accuracy ?? 0);
+    })
+    .catch(() => {});
 
-  // Layer 1: Server / Internet API
-  try {
-    const statusPayload = await getStatusPayload();
-    const data = await apiRequest('/sos/trigger', {
+  // Prepare payload & messages
+  const statusPayload = await getStatusPayload().catch(() => ({}));
+  const mapsLink = `https://www.google.com/maps?q=${lat},${lng}`;
+  const statusLine = await buildStatusLine().catch(() => '');
+  const smsBody = t('msg.sos_body', { link: mapsLink }) + statusLine;
+  const broadcastMsg = t('msg.sos_broadcast') + statusLine;
+
+  // --- 2. TIER A: Fire Backend & Native SMS in parallel (8s timeout) ---
+  const backendTask = withTimeout(
+    apiRequest('/sos/trigger', {
       method: 'POST',
       body: JSON.stringify({ lat, lng, accuracy, ...statusPayload }),
-    });
-    return { channel: 'backend', contactsNotified: data.contactsNotified };
-  } catch {
-    // Layer 2: Native Cellular SMS Fallback
-    const mapsLink = `https://www.google.com/maps?q=${lat},${lng}`;
-    const statusLine = await buildStatusLine();
-    
-    // Localized alert body for Layer 2
-    const message = t('msg.sos_body', { link: mapsLink }) + statusLine;
-    
-    const results: NotifyResult[] = [];
-    const smsAllowed = await ensureSmsPermission();
+    }),
+    8000
+  );
 
-    if (smsAllowed) {
+  const smsTask = withTimeout(
+    (async (): Promise<NotifyResult[]> => {
+      const smsAllowed = await ensureSmsPermission();
+      if (!smsAllowed || contacts.length === 0) throw new Error('SMS_NOT_ALLOWED');
+
+      const smsResults: NotifyResult[] = [];
       for (const contact of contacts) {
         try {
-          const result = await SmsManager.sendSms(contact.phone, message, {
-            checkSignal: true, 
-          });
-          const ok = result?.status === 'sent' || result?.status === 'sent_no_confirmation';
-          results.push({
-            name: contact.name,
-            phone: contact.phone,
-            status: ok ? 'sent' : 'failed',
-          });
+          const res = await SmsManager.sendSms(contact.phone, smsBody, { checkSignal: true });
+          const ok = res?.status === 'sent' || res?.status === 'sent_no_confirmation';
+          smsResults.push({ name: contact.name, phone: contact.phone, status: ok ? 'sent' : 'failed' });
         } catch {
-          results.push({ name: contact.name, phone: contact.phone, status: 'failed' });
+          smsResults.push({ name: contact.name, phone: contact.phone, status: 'failed' });
         }
       }
-    }
 
-    const allFailed = results.length === 0 || results.every((r) => r.status === 'failed');
-    if (!allFailed) {
-      return { channel: 'native', contactsNotified: results };
-    }
+      const anySent = smsResults.some((r) => r.status === 'sent');
+      if (!anySent) throw new Error('ALL_SMS_FAILED');
+      return smsResults;
+    })(),
+    8000
+  );
 
-    // Layer 3: Local WiFi/LAN UDP Broadcast Fallback
-    const lanBroadcastSent = await sendLanAlert(lat, lng, t('msg.sos_broadcast') + statusLine);
-    if (lanBroadcastSent) {
-      return { channel: 'lan', contactsNotified: results, lanBroadcastSent };
-    }
+  const [backendOutcome, smsOutcome] = await Promise.allSettled([backendTask, smsTask]);
 
-    // Layer 4: Bluetooth Mesh Relay
-    const meshBroadcastSent = await sendMeshAlert(lat, lng, t('msg.sos_broadcast') + statusLine);
-    return { channel: 'mesh', contactsNotified: results, lanBroadcastSent: false, meshBroadcastSent };
+  // If Backend succeeded:
+  if (backendOutcome.status === 'fulfilled') {
+    const data = backendOutcome.value;
+    return {
+      channel: 'backend',
+      contactsNotified: data.contactsNotified || contacts.map((c) => ({ name: c.name, phone: c.phone, status: 'sent' })),
+    };
   }
+
+  // If SMS succeeded while backend failed/timed out:
+  if (smsOutcome.status === 'fulfilled') {
+    return {
+      channel: 'native',
+      contactsNotified: smsOutcome.value,
+    };
+  }
+
+  // --- 3. TIER B: Fallback to Offline LAN & Bluetooth Mesh (Only if Tier A failed) ---
+  const lanTask = withTimeout(sendLanAlert(lat, lng, broadcastMsg), 8000);
+  const meshTask = withTimeout(sendMeshAlert(lat, lng, broadcastMsg), 8000);
+
+  const [lanOutcome, meshOutcome] = await Promise.allSettled([lanTask, meshTask]);
+
+  const lanSent = lanOutcome.status === 'fulfilled' && !!lanOutcome.value;
+  const meshSent = meshOutcome.status === 'fulfilled' && !!meshOutcome.value;
+
+  const failedContacts: NotifyResult[] = contacts.map((c) => ({ name: c.name, phone: c.phone, status: 'failed' }));
+
+  if (lanSent) {
+    return { channel: 'lan', contactsNotified: failedContacts, lanBroadcastSent: true };
+  }
+
+  if (meshSent) {
+    return { channel: 'mesh', contactsNotified: failedContacts, lanBroadcastSent: false, meshBroadcastSent: true };
+  }
+
+  // If everything failed
+  return {
+    channel: 'failed',
+    contactsNotified: failedContacts,
+    lanBroadcastSent: false,
+    meshBroadcastSent: false,
+  };
 }

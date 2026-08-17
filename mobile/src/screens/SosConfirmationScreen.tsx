@@ -1,5 +1,5 @@
 import React, { useEffect } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, FlatList } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet, FlatList, Linking } from 'react-native';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../navigation/AppNavigator';
 import * as SecureStore from 'expo-secure-store';
@@ -25,18 +25,48 @@ export default function SosConfirmationScreen({ route, navigation }: Props) {
     }
   }, [channel, navigation]);
 
-  const getSubtitle = () => {
-    if (channel === 'backend') return t('sos.channel_backend');
-    if (channel === 'native') return t('sos.channel_native');
-    if (channel === 'lan') return t('sos.channel_lan');
-    if (channel === 'mesh') return t('sos.channel_mesh');
-    return error || t('sos.channel_failed');
+  // Honest, specific channel descriptions
+  const getChannelDescription = () => {
+    const successfulContacts = (contactsNotified || []).filter((c) => c.status === 'sent').map((c) => c.name).join(', ');
+    
+    if (channel === 'backend') {
+      return successfulContacts 
+        ? `Alert delivered to ${successfulContacts} via Internet & SMS Gateway.`
+        : t('sos.channel_backend');
+    }
+    if (channel === 'native') {
+      return successfulContacts
+        ? `Alert delivered to ${successfulContacts} via Direct Cellular SMS.`
+        : t('sos.channel_native');
+    }
+    if (channel === 'lan') {
+      return 'No cellular service. Alert broadcast to nearby devices on local Wi-Fi.';
+    }
+    if (channel === 'mesh') {
+      return 'No network available. Alert relayed to nearby devices via Bluetooth Mesh.';
+    }
+    return error || 'Could not reach emergency contacts. Please call emergency services directly.';
+  };
+
+  const handleCall999 = () => {
+    Linking.openURL('tel:999').catch(() => {});
   };
 
   return (
     <View style={styles.container}>
-      <Text style={styles.title}>{channel === 'failed' ? t('sos.channel_failed') : t('sos.sent_title')}</Text>
-      <Text style={styles.subtitle}>{getSubtitle()}</Text>
+      <Text style={[styles.title, channel === 'failed' && styles.titleFail]}>
+        {channel === 'failed' ? t('sos.channel_failed') : t('sos.sent_title')}
+      </Text>
+      
+      <Text style={styles.subtitle}>{getChannelDescription()}</Text>
+
+      {/* Always-visible direct emergency call button */}
+      <TouchableOpacity style={styles.emergencyCallButton} onPress={handleCall999}>
+        <Text style={styles.emergencyCallText}>📞 Call 999 (National Emergency)</Text>
+      </TouchableOpacity>
+
+      <Text style={styles.sectionHeader}>{t('home.contacts')}</Text>
+      
       <FlatList
         data={contactsNotified || []}
         keyExtractor={(item, i) => item.phone || String(i)}
@@ -49,6 +79,7 @@ export default function SosConfirmationScreen({ route, navigation }: Props) {
           </View>
         )}
       />
+
       <TouchableOpacity style={styles.button} onPress={() => navigation.popToTop()}>
         <Text style={styles.buttonText}>{t('common.done')}</Text>
       </TouchableOpacity>
@@ -58,8 +89,12 @@ export default function SosConfirmationScreen({ route, navigation }: Props) {
 
 const styles = StyleSheet.create({
   container: { flex: 1, padding: 24 },
-  title: { fontSize: 24, fontWeight: 'bold', color: '#111827', marginTop: 20, marginBottom: 8 },
-  subtitle: { fontSize: 14, color: '#6B7280', marginBottom: 24, lineHeight: 20 },
+  title: { fontSize: 24, fontWeight: 'bold', color: '#16A34A', marginTop: 20, marginBottom: 8 },
+  titleFail: { color: '#DC2626' },
+  subtitle: { fontSize: 14, color: '#374151', marginBottom: 16, lineHeight: 20 },
+  emergencyCallButton: { backgroundColor: '#DC2626', borderRadius: 8, padding: 14, alignItems: 'center', marginBottom: 20 },
+  emergencyCallText: { color: '#fff', fontWeight: 'bold', fontSize: 16 },
+  sectionHeader: { fontSize: 16, fontWeight: 'bold', color: '#111827', marginBottom: 8 },
   contactRow: { flexDirection: 'row', justifyContent: 'space-between', backgroundColor: '#EDE9FE', borderRadius: 8, padding: 14, marginBottom: 8, minHeight: 48, alignItems: 'center' },
   contactName: { fontSize: 16, color: '#111827' },
   statusOk: { color: '#16A34A', fontWeight: 'bold' },
