@@ -1,6 +1,7 @@
 import React from 'react';
 import { Pressable, Text, StyleSheet } from 'react-native';
 import { colors } from '../theme/theme';
+import { useSimpleMode } from '../context/SimpleModeContext';
 
 interface SosButtonProps {
   onTrigger: () => void;
@@ -8,7 +9,12 @@ interface SosButtonProps {
   size?: number;
 }
 
-export function SosButton({ onTrigger, onPressHelp, size = 160 }: SosButtonProps) {
+export function SosButton({ onTrigger, onPressHelp, size }: SosButtonProps) {
+  const { simpleMode } = useSimpleMode();
+  
+  // Scales dynamically: 196dp in Simple Mode, 156dp normally
+  const resolvedSize = size ?? (simpleMode ? 196 : 156);
+
   return (
     <Pressable
       onPress={onPressHelp}
@@ -16,12 +22,12 @@ export function SosButton({ onTrigger, onPressHelp, size = 160 }: SosButtonProps
       delayLongPress={900}
       style={({ pressed }) => [
         styles.button,
-        { width: size, height: size, borderRadius: size / 2 },
+        { width: resolvedSize, height: resolvedSize, borderRadius: resolvedSize / 2 },
         pressed && styles.pressed,
       ]}
     >
-      <Text style={styles.label}>SOS</Text>
-      <Text style={styles.sublabel}>Hold to send alert</Text>
+      <Text style={[styles.label, simpleMode && styles.labelSimple]}>SOS</Text>
+      <Text style={[styles.sublabel, simpleMode && styles.sublabelSimple]}>Hold to send alert</Text>
     </Pressable>
   );
 }
@@ -41,6 +47,8 @@ const styles = StyleSheet.create({
     opacity: 0.9,
     transform: [{ scale: 0.98 }],
   },
-  label: { color: '#FFFFFF', fontSize: 32, fontWeight: '900', letterSpacing: 0.5 },
+  label: { color: '#FFFFFF', fontSize: 28, fontWeight: '900', letterSpacing: 0.5 },
+  labelSimple: { fontSize: 36 },
   sublabel: { color: '#FFFFFF', fontSize: 11.5, fontWeight: '700', opacity: 0.92, marginTop: 4 },
+  sublabelSimple: { fontSize: 14 },
 });

@@ -1,6 +1,8 @@
 import React, { ReactNode } from 'react';
 import { Pressable, View, Text, StyleSheet } from 'react-native';
-import { colors, spacing, touchTarget } from '../theme/theme';
+import { colors } from '../theme/theme';
+import { useSimpleMode } from '../context/SimpleModeContext';
+import { getScaledTokens } from '../theme/simpleModeScale';
 
 interface ListRowProps {
   title: string;
@@ -21,18 +23,24 @@ export function ListRow({
   onLongPress,
   delayLongPress,
 }: ListRowProps) {
+  const { simpleMode } = useSimpleMode();
+  const { spacing, touchTarget } = getScaledTokens(simpleMode);
+
   return (
     <Pressable
       onPress={onPress}
       onLongPress={onLongPress}
       delayLongPress={delayLongPress}
-      style={styles.row}
+      style={[
+        styles.row, 
+        { paddingVertical: spacing.md, minHeight: touchTarget.minimum }
+      ]}
       disabled={!onPress && !onLongPress}
     >
       {left}
       <View style={{ flex: 1, marginLeft: left ? spacing.md : 0 }}>
-        <Text style={styles.title}>{title}</Text>
-        {subtitle ? <Text style={styles.subtitle}>{subtitle}</Text> : null}
+        <Text style={[styles.title, simpleMode && styles.titleSimple]}>{title}</Text>
+        {subtitle ? <Text style={[styles.subtitle, simpleMode && styles.subtitleSimple]}>{subtitle}</Text> : null}
       </View>
       {right}
     </Pressable>
@@ -40,12 +48,24 @@ export function ListRow({
 }
 
 const styles = StyleSheet.create({
-  row: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: spacing.md,
-    minHeight: touchTarget.minimum,
+  row: { 
+    flexDirection: 'row', 
+    alignItems: 'center' 
   },
-  title: { fontSize: 16, fontWeight: '700', color: colors.textPrimary },
-  subtitle: { fontSize: 13, color: colors.textSecondary, marginTop: 2 },
+  title: { 
+    fontSize: 16, 
+    fontWeight: '700', 
+    color: colors.textPrimary 
+  },
+  titleSimple: { 
+    fontSize: 19 
+  },
+  subtitle: { 
+    fontSize: 13, 
+    color: colors.textSecondary, 
+    marginTop: 2 
+  },
+  subtitleSimple: { 
+    fontSize: 15 
+  },
 });

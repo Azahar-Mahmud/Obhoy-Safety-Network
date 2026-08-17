@@ -12,6 +12,7 @@ import { SilentModeProvider } from './src/context/SilentModeContext';
 import { FallDetectionProvider } from './src/context/FallDetectionContext';
 import { AuthProvider } from './src/context/AuthContext';
 import { DiscreetModeProvider, useDiscreetMode } from './src/context/DiscreetModeContext';
+import { SimpleModeProvider } from './src/context/SimpleModeContext'; // <--- NEW IMPORT
 import { LanAlertProvider } from './src/context/LanAlertContext';
 import { MeshProvider } from './src/context/MeshContext';
 import AppNavigator from './src/navigation/AppNavigator';
@@ -19,22 +20,16 @@ import IntroScreen from './src/screens/IntroScreen';
 
 SplashScreen.preventAutoHideAsync().catch(() => {});
 
-// --- STARTUP GATE ---
-// Reads Discreet Mode from context to decide whether to show the intro or launch straight into the disguise
 function StartupGate() {
   const { discreetModeEnabled, isLoading } = useDiscreetMode();
   const [showIntro, setShowIntro] = useState(true);
 
   useEffect(() => {
-    if (isLoading) return; // Still loading from SecureStore
-    
-    // If Discreet Mode is ON, skip intro immediately
+    if (isLoading) return;
     if (discreetModeEnabled) {
       setShowIntro(false);
       return;
     }
-
-    // If Discreet Mode is OFF, show the 1.5s branded intro
     const timer = setTimeout(() => setShowIntro(false), 1500);
     return () => clearTimeout(timer);
   }, [isLoading, discreetModeEnabled]);
@@ -84,15 +79,17 @@ export default function App() {
     >
       <AuthProvider>
         <DiscreetModeProvider>
-          <SilentModeProvider>
-            <LanAlertProvider>
-              <MeshProvider>
-                <FallDetectionProvider>
-                  <StartupGate />
-                </FallDetectionProvider>
-              </MeshProvider>
-            </LanAlertProvider>
-          </SilentModeProvider>
+          <SimpleModeProvider>
+            <SilentModeProvider>
+              <LanAlertProvider>
+                <MeshProvider>
+                  <FallDetectionProvider>
+                    <StartupGate />
+                  </FallDetectionProvider>
+                </MeshProvider>
+              </LanAlertProvider>
+            </SilentModeProvider>
+          </SimpleModeProvider>
         </DiscreetModeProvider>
       </AuthProvider>
     </LanguageChosenContext.Provider>
