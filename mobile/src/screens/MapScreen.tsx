@@ -9,19 +9,27 @@ import { Feather } from '@expo/vector-icons';
 import { RootStackParamList } from '../navigation/AppNavigator';
 import { apiRequest } from '../api/client';
 import { broadcastCommunityAlert, AlertCategory } from '../utils/communityAlert';
-import { colors, radii, spacing, typography } from '../theme/theme';
+import { getRoute } from '../utils/journeyRouting'; // <--- Import getRoute (Obhoy_49)
+import { colors, radii, spacing } from '../theme/theme';
 import { t, useLanguage } from '../i18n';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'Map'>;
 
-// --- STEP 1: Two-tier color function (NO red anywhere on Map overlay) ---
 function getScoreColor(score: number | null) {
-  if (score === null) return { backgroundColor: '#9CA3AF' }; // Neutral gray for no data
-  if (score >= 4) return { backgroundColor: colors.safe };     // Green for safe
-  return { backgroundColor: colors.caution };                  // Amber caution for all non-safe tiers
+  if (score === null) return { backgroundColor: '#9CA3AF' }; 
+  if (score >= 4) return { backgroundColor: colors.safe };     
+  return { backgroundColor: colors.caution };                      
 }
 
-function buildMapHtml(lat: number, lng: number, reports: any[], checkins: any[], alerts: any[], familyMembers: any[]) {
+function buildMapHtml(
+  lat: number, 
+  lng: number, 
+  reports: any[], 
+  checkins: any[], 
+  alerts: any[], 
+  familyMembers: any[],
+  routePoints: any[] = [] // <--- Added routePoints parameter
+) {
   const markersScript = `
     function pinIconHtml(kind, letter) {
       if (kind === 'safe') {
@@ -80,6 +88,13 @@ function buildMapHtml(lat: number, lng: number, reports: any[], checkins: any[],
     return `addCustomMarker(${m.lat}, ${m.lng}, 'family', ${JSON.stringify(m.initial)}, ${JSON.stringify(label)});`;
   }).join('\n');
 
+  // 5. Active Journey Polyline (Obhoy_49)
+  const routePolylineScript = routePoints.length >= 2 ? `
+    const routeCoords = ${JSON.stringify(routePoints.map(p => [p.lat, p.lng]))};
+    L.polyline(routeCoords, { color: '#6B21A8', weight: 4, opacity: 0.75 }).addTo(map);
+    L.marker(routeCoords[routeCoords.length - 1]).addTo(map).bindPopup('<b>Destination</b>');
+  ` : '';
+
   return `
 <!DOCTYPE html>
 <html>
@@ -104,6 +119,7 @@ function buildMapHtml(lat: number, lng: number, reports: any[], checkins: any[],
     ${checkinPins}
     ${alertPins}
     ${familyPins}
+    ${routePolylineScript}
 
     map.on('moveend', function() {
       const center = map.getCenter();
@@ -136,11 +152,13 @@ export default function MapScreen({ navigation }: Props) {
     const { coords } = await Location.getCurrentPositionAsync({});
     
     try {
-      const [reports, checkins, alerts, familyData] = await Promise.all([
+      // Parallel fetch: Reports, Safety Check-ins, Live Alerts, Family, and Active Journey
+      const [reports, checkins, alerts, familyData, activeJourney] = await Promise.all([
         apiRequest(`/reports/nearby?lat=${coords.latitude}&lng=${coords.longitude}&radius=5`).catch(() => []),
         apiRequest(`/safety-checkins/nearby?lat=${coords.latitude}&lng=${coords.longitude}&radius=5`).catch(() => []),
         apiRequest(`/community-alerts/nearby?lat=${coords.latitude}&lng=${coords.longitude}&radius=5`).catch(() => []),
-        apiRequest('/family').catch(() => null)
+        apiRequest('/family').catch(() => null),
+        apiRequest('/journey/active').catch(() => null),
       ]);
 
       const familyMembers = (familyData?.members || [])
@@ -152,11 +170,29 @@ export default function MapScreen({ navigation }: Props) {
           lng: m.location.lng,
           updatedAt: m.location.updatedAt,
         }));
+
+      // Calculate route line if there is an active journey with destination coordinates
+      let routePoints: any[] = [];
+      if (
+        activeJourney && 
+        typeof activeJourney.destinationLat === 'number' && 
+        typeof activeJourney.destinationLng === 'number'
+      ) {
+        const start = {
+          lat: activeJourney.originLat || activeJourney.currentLocation?.lat || coords.latitude,
+          lng: activeJourney.originLng || activeJourney.currentLocation?.lng || coords.longitude,
+        };
+        const dest = {
+          lat: activeJourney.destinationLat,
+          lng: activeJourney.destinationLng,
+        };
+        routePoints = await getRoute(start, dest);
+      }
       
-      setHtml(buildMapHtml(coords.latitude, coords.longitude, reports, checkins, alerts, familyMembers));
+      setHtml(buildMapHtml(coords.latitude, coords.longitude, reports, checkins, alerts, familyMembers, routePoints));
       fetchAreaScore(coords.latitude, coords.longitude);
     } catch {
-      setHtml(buildMapHtml(coords.latitude, coords.longitude, [], [], [], []));
+      setHtml(buildMapHtml(coords.latitude, coords.longitude, [], [], [], [], []));
     }
     setLoading(false);
   }, []);
@@ -182,7 +218,7 @@ export default function MapScreen({ navigation }: Props) {
         <WebView source={{ html }} style={styles.map} originWhitelist={['*']} onMessage={handleMessage} />
       ) : null}
 
-      {/* --- STEP 2: Qualitative label leads, score and report count are secondary --- */}
+      {/* Floating Area Safety Score Overlay */}
       {areaScore && (
         <View style={[styles.scoreOverlay, getScoreColor(areaScore.score)]}>
           <Text style={styles.scoreLabelPrimary}>{areaScore.label}</Text>
@@ -200,7 +236,7 @@ export default function MapScreen({ navigation }: Props) {
         <Text style={styles.warnButtonText}>Warn Nearby</Text>
       </TouchableOpacity>
 
-      {/* --- STEP 3: 3-Category Alert Picker with 2km Non-Police Disclaimer --- */}
+      {/* 3-Category Alert Picker */}
       {showAlertPicker && (
         <View style={styles.pickerOverlay}>
           <Text style={styles.disclaimer}>
@@ -242,7 +278,6 @@ const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#FFFFFF' },
   map: { flex: 1 },
   
-  // STEP 2 Styles: Visual Hierarchy Swapped
   scoreOverlay: { 
     position: 'absolute', 
     top: 16, 
@@ -260,7 +295,6 @@ const styles = StyleSheet.create({
   scoreLabelPrimary: { fontSize: 15, fontWeight: '700', color: '#FFFFFF', textAlign: 'center' },
   scoreNumberSecondary: { fontSize: 12, color: '#FFFFFF', opacity: 0.9, marginTop: 2, textAlign: 'center' },
 
-  // STEP 3 Styles: Disclaimer Micro-Copy
   disclaimer: { 
     fontSize: 12, 
     color: colors.textSecondary, 

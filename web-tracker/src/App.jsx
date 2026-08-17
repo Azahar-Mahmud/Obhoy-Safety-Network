@@ -1,8 +1,9 @@
 import { useState, useEffect } from 'react';
-import { MapContainer, TileLayer, Marker, Popup, Circle } from 'react-leaflet';
+import { MapContainer, TileLayer, Marker, Popup, Circle, Polyline } from 'react-leaflet';
 import 'leaflet/dist/leaflet.css';
 
 const API_BASE_URL = 'https://obhoy-safety-network.onrender.com';
+const ORS_API_KEY = process.env.REACT_APP_ORS_API_KEY || ''; // Optional ORS key
 
 const STRINGS = {
   en: {
@@ -21,6 +22,7 @@ const STRINGS = {
     ask_safe: "Ask if they're safe",
     asked: 'Request sent — waiting for reply',
     last_known: 'Last known location',
+    destination: 'Destination',
     no_location: 'No location available yet.',
     loading: 'Loading...',
     not_found: 'Link not found or expired.',
@@ -41,6 +43,7 @@ const STRINGS = {
     ask_safe: 'নিরাপদ আছে কিনা জিজ্ঞেস করুন',
     asked: 'জিজ্ঞেস করা হয়েছে — উত্তরের অপেক্ষায়',
     last_known: 'সর্বশেষ প্রাপ্ত অবস্থান',
+    destination: 'গন্তব্য',
     no_location: 'এখনো কোনো অবস্থান পাওয়া যায়নি।',
     loading: 'লোড হচ্ছে...',
     not_found: 'লিংকটি পাওয়া যায়নি বা মেয়াদ শেষ হয়েছে।',
@@ -64,6 +67,7 @@ function getTokenFromUrl() {
 export default function App() {
   const [data, setData] = useState(null);
   const [error, setError] = useState('');
+  const [routeLine, setRouteLine] = useState([]);
   
   const [requesting, setRequesting] = useState(false);
   const [requestSent, setRequestSent] = useState(false);
@@ -85,6 +89,44 @@ export default function App() {
     return () => clearInterval(interval);
   }, [token]);
 
+  // --- STEP 2: Calculate Route Polyline (ORS with straight-line fallback) ---
+  useEffect(() => {
+    if (!data || typeof data.destinationLat !== 'number' || typeof data.destinationLng !== 'number') {
+      return;
+    }
+
+    const startLat = data.originLat || data.location?.lat;
+    const startLng = data.originLng || data.location?.lng;
+    const destLat = data.destinationLat;
+    const destLng = data.destinationLng;
+
+    if (!startLat || !startLng) return;
+
+    async function fetchRoute() {
+      if (ORS_API_KEY) {
+        try {
+          const controller = new AbortController();
+          const timeout = setTimeout(() => controller.abort(), 5000);
+          const url = `https://api.openrouteservice.org/v2/directions/foot-walking?api_key=${ORS_API_KEY}&start=${startLng},${startLat}&end=${destLng},${destLat}`;
+          const res = await fetch(url, { signal: controller.signal });
+          clearTimeout(timeout);
+          if (res.ok) {
+            const json = await res.json();
+            const coords = json.features?.[0]?.geometry?.coordinates;
+            if (coords && coords.length >= 2) {
+              setRouteLine(coords.map(([lng, lat]) => [lat, lng]));
+              return;
+            }
+          }
+        } catch {}
+      }
+      // Straight-line fallback
+      setRouteLine([[startLat, startLng], [destLat, destLng]]);
+    }
+
+    fetchRoute();
+  }, [data]);
+
   const handleRequestCheckin = async () => {
     setRequesting(true);
     try {
@@ -100,7 +142,7 @@ export default function App() {
   if (error) return <div style={styles.center}>{tr(lang, 'not_found')}</div>;
   if (!data) return <div style={styles.center}>{tr(lang, 'loading')}</div>;
 
-  const { location, status, updatedAt, kind, destinationLabel, geofence, lastTwoWayResponse, mode, scheduledDeadline } = data;
+  const { location, status, updatedAt, kind, destinationLabel, destinationLat, destinationLng, geofence, lastTwoWayResponse, mode, scheduledDeadline } = data;
   const timeStr = updatedAt ? new Date(updatedAt).toLocaleTimeString() : '';
   const deadlineStr = scheduledDeadline ? new Date(scheduledDeadline).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '';
 
@@ -150,9 +192,10 @@ export default function App() {
       {lastTwoWayResponse === 'help' && <div style={styles.helpNote}>{tr(lang, 'requested_help')}</div>}
 
       {location ? (
-        <MapContainer center={[location.lat, location.lng]} zoom={16} style={styles.map}>
+        <MapContainer center={[location.lat, location.lng]} zoom={15} style={styles.map}>
           <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" attribution="&copy; OpenStreetMap contributors" />
           
+          {/* Safe Zone Boundary */}
           {geofence && (
             <Circle 
               center={[geofence.center.lat, geofence.center.lng]} 
@@ -163,7 +206,28 @@ export default function App() {
               }}
             />
           )}
-          
+
+          {/* Planned Walking Route Polyline */}
+          {routeLine.length > 0 && (
+            <Polyline
+              positions={routeLine}
+              pathOptions={{
+                color: '#6B21A8',
+                weight: 4,
+                opacity: 0.7,
+                dashArray: ORS_API_KEY ? undefined : '6, 8', // dashed if straight-line fallback
+              }}
+            />
+          )}
+
+          {/* Destination Marker */}
+          {typeof destinationLat === 'number' && typeof destinationLng === 'number' && (
+            <Marker position={[destinationLat, destinationLng]}>
+              <Popup>🏁 {destinationLabel || tr(lang, 'destination')}</Popup>
+            </Marker>
+          )}
+
+          {/* Current Live Location Marker */}
           <Marker position={[location.lat, location.lng]}>
             <Popup>{tr(lang, 'last_known')}</Popup>
           </Marker>

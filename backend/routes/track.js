@@ -2,7 +2,7 @@ const express = require('express');
 const SosEvent = require('../models/SosEvent');
 const JourneySession = require('../models/JourneySession');
 const EvidenceSession = require('../models/EvidenceSession');
-const User = require('../models/User'); // <--- ADDED
+const User = require('../models/User');
 
 const router = express.Router();
 
@@ -15,7 +15,7 @@ router.get('/:token', async (req, res) => {
       status: sos.status,
       location: sos.location,
       updatedAt: sos.location?.updatedAt,
-      language: user?.language || 'en', // <--- ADDED
+      language: user?.language || 'en',
     });
   }
   
@@ -28,13 +28,21 @@ router.get('/:token', async (req, res) => {
       location: journey.currentLocation,
       updatedAt: journey.currentLocation?.updatedAt,
       destinationLabel: journey.destinationLabel,
+      
+      // --- Route Coordinates for Polyline & Destination Marker (Obhoy_49) ---
+      destinationLat: journey.destinationLat,
+      destinationLng: journey.destinationLng,
+      originLat: journey.originLat,
+      originLng: journey.originLng,
+      // ----------------------------------------------------------------------
+
       geofence: journey.geofenceEnabled
         ? { center: journey.geofenceCenter, radiusMeters: journey.geofenceRadiusMeters, alerted: journey.geofenceAlerted }
         : null,
       lastTwoWayResponse: journey.lastTwoWayResponse,
       mode: journey.mode,
       scheduledDeadline: journey.scheduledDeadline,
-      language: user?.language || 'en', // <--- ADDED
+      language: user?.language || 'en',
     });
   }
   
@@ -46,7 +54,7 @@ router.get('/:token', async (req, res) => {
       status: evidence.status,
       location: evidence.location,
       updatedAt: evidence.location?.updatedAt,
-      language: user?.language || 'en', // <--- ADDED
+      language: user?.language || 'en',
     });
   }
 
