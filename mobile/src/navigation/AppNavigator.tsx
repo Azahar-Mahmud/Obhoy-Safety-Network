@@ -1,10 +1,8 @@
-import React, { useContext } from 'react';
+import React, { useContext, useEffect, useState } from 'react';
 import { View, ActivityIndicator } from 'react-native';
 import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
-import AppGuideScreen from '../screens/AppGuideScreen';
-import EvidenceGalleryScreen from '../screens/EvidenceGalleryScreen';
-import MapPointPickerScreen from '../screens/MapPointPickerScreen';
+import * as SecureStore from 'expo-secure-store';
 
 // Contexts & i18n
 import { useAuth } from '../context/AuthContext';
@@ -13,8 +11,11 @@ import { useFallDetection } from '../context/FallDetectionContext';
 import { useLanguage, t } from '../i18n';
 import { LanguageChosenContext } from '../context/LanguageChosenContext';
 
-// First-Run Screen
+// First-Run & Onboarding Screens (Obhoy_50)
 import LanguageSelectScreen from '../screens/LanguageSelectScreen';
+import OnboardingContactScreen from '../screens/onboarding/OnboardingContactScreen';
+import OnboardingPermissionsScreen from '../screens/onboarding/OnboardingPermissionsScreen';
+import OnboardingTestSosScreen from '../screens/onboarding/OnboardingTestSosScreen';
 
 // Auth Screens
 import PhoneEntryScreen from '../screens/PhoneEntryScreen';
@@ -31,20 +32,23 @@ import SosConfirmationScreen from '../screens/SosConfirmationScreen';
 import JourneySetupScreen from '../screens/JourneySetupScreen';
 import ActiveJourneyScreen from '../screens/ActiveJourneyScreen';
 import DirectoryScreen from '../screens/DirectoryScreen';
+import AppGuideScreen from '../screens/AppGuideScreen';
 import MapScreen from '../screens/MapScreen';
+import MapPointPickerScreen from '../screens/MapPointPickerScreen';
 import ReportCategoryScreen from '../screens/ReportCategoryScreen';
 import ReportConfirmScreen from '../screens/ReportConfirmScreen';
 import ReportDescriptionScreen from '../screens/ReportDescriptionScreen';
 import ReportSuccessScreen from '../screens/ReportSuccessScreen';
 import EvidenceCaptureScreen from '../screens/EvidenceCaptureScreen';
 import EvidenceListScreen from '../screens/EvidenceListScreen';
+import EvidenceGalleryScreen from '../screens/EvidenceGalleryScreen';
 import NearbyAlertsScreen from '../screens/NearbyAlertsScreen';
 import LastAlertStatusScreen from '../screens/LastAlertStatusScreen';
 import MedicalCardEditScreen from '../screens/MedicalCardEditScreen';
 import FallDetectedScreen from '../screens/FallDetectedScreen';
 import MedicalCardScreen from '../screens/MedicalCardScreen';
 
-// Family Screens (Obhoy_31)
+// Family Screens
 import FamilyScreen from '../screens/FamilyScreen';
 import FamilyInviteScreen from '../screens/FamilyInviteScreen';
 import FamilyPrivacyScreen from '../screens/FamilyPrivacyScreen';
@@ -55,6 +59,9 @@ import SettingsScreen from '../screens/SettingsScreen';
 
 export type RootStackParamList = {
   LanguageSelect: undefined;
+  OnboardingContact: undefined;
+  OnboardingPermissions: undefined;
+  OnboardingTestSos: undefined;
   PhoneEntry: undefined;
   Otp: { phone: string; otpWindowSeconds: number };
   SetPin: { phone: string };
@@ -88,6 +95,7 @@ export type RootStackParamList = {
     scheduledDeadline?: string; 
   };
   Directory: undefined;
+  AppGuide: undefined;
   Map: undefined;
   ReportCategory: undefined;
   ReportConfirm: { category: string };
@@ -100,23 +108,37 @@ export type RootStackParamList = {
   LastAlertStatus: undefined;
   EvidenceCapture: { autoStart?: boolean } | undefined;
   EvidenceList: { justSavedPath: string };
+  EvidenceGallery: undefined;
   Family: undefined;
   FamilyInvite: undefined;
   FamilyPrivacy: undefined;
-  AppGuide: undefined;
-  EvidenceGallery: undefined;
 };
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
 
 export default function AppNavigator() {
-  useLanguage(); // Subscribe so header titles re-render immediately on language toggle
+  useLanguage(); 
   const { chosen: languageChosen } = useContext(LanguageChosenContext);
   const { token, isLoading: authLoading } = useAuth();
   const { discreetModeEnabled, isUnlocked, isLoading: discreetLoading } = useDiscreetMode();
   const { phase, resolveCountdown, escalateToCard } = useFallDetection();
 
-  if (authLoading || discreetLoading) {
+  const [onboardingChecked, setOnboardingChecked] = useState(false);
+  const [onboardingComplete, setOnboardingComplete] = useState(false);
+
+  useEffect(() => {
+    if (token) {
+      SecureStore.getItemAsync('obhoy_onboarding_completed')
+        .then((val) => {
+          setOnboardingComplete(val === 'true');
+        })
+        .finally(() => setOnboardingChecked(true));
+    } else {
+      setOnboardingChecked(true);
+    }
+  }, [token]);
+
+  if (authLoading || discreetLoading || !onboardingChecked) {
     return (
       <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#ffffff' }}>
         <ActivityIndicator size="large" color="#6B21A8" />
@@ -126,7 +148,6 @@ export default function AppNavigator() {
 
   const showDisguise = discreetModeEnabled && !isUnlocked;
 
-  // 1. Intercept navigation for emergencies
   if (!showDisguise && phase === 'countdown') {
     return <FallDetectedScreen onResolved={resolveCountdown} onEscalate={escalateToCard} />;
   }
@@ -151,6 +172,16 @@ export default function AppNavigator() {
           </>
         ) : (
           <>
+            {/* Authenticated Stack: Onboarding flow for first-time users */}
+            {!onboardingComplete && (
+              <>
+                <Stack.Screen name="OnboardingContact" component={OnboardingContactScreen} options={{ title: 'Add Contact', headerBackVisible: false }} />
+                <Stack.Screen name="OnboardingPermissions" component={OnboardingPermissionsScreen} options={{ title: 'Permissions' }} />
+                <Stack.Screen name="OnboardingTestSos" component={OnboardingTestSosScreen} options={{ title: 'Practice Run' }} />
+              </>
+            )}
+
+            {/* Main Application Screens */}
             <Stack.Screen name="Home" component={HomeScreen} options={{ title: 'Obhoy' }} />
             <Stack.Screen name="Family" component={FamilyScreen} options={{ title: t('family.title') }} />
             <Stack.Screen name="FamilyInvite" component={FamilyInviteScreen} options={{ title: t('family.add_member') }} />
@@ -160,6 +191,7 @@ export default function AppNavigator() {
             <Stack.Screen name="SosCountdown" component={SosCountdownScreen} options={{ headerShown: false }} />
             <Stack.Screen name="SosConfirmation" component={SosConfirmationScreen} options={{ title: t('sos.sent_title') }} />
             <Stack.Screen name="JourneySetup" component={JourneySetupScreen} options={{ title: t('journey.start') }} />
+            <Stack.Screen name="MapPointPicker" component={MapPointPickerScreen} options={{ title: 'Select Location' }} />
             <Stack.Screen name="ActiveJourney" component={ActiveJourneyScreen} options={{ title: t('home.journey'), headerBackVisible: false }} />
             <Stack.Screen name="Directory" component={DirectoryScreen} options={{ title: t('dir.title') }} />
             <Stack.Screen name="AppGuide" component={AppGuideScreen} options={{ title: 'App Guide' }} />
@@ -175,7 +207,6 @@ export default function AppNavigator() {
             <Stack.Screen name="EvidenceCapture" component={EvidenceCaptureScreen} options={{ title: t('home.evidence') }} />
             <Stack.Screen name="EvidenceList" component={EvidenceListScreen} options={{ title: t('home.evidence') }} />
             <Stack.Screen name="EvidenceGallery" component={EvidenceGalleryScreen} options={{ title: 'Evidence Vault' }} />
-            <Stack.Screen name="MapPointPicker" component={MapPointPickerScreen} options={{ title: 'Select Location' }} />
           </>
         )}
       </Stack.Navigator>
