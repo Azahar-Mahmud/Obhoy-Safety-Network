@@ -1,11 +1,12 @@
-import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
-import { Platform } from 'react-native';
+import React, { createContext, useContext, useState, useEffect, useCallback, useRef } from 'react';
+import { Platform, AppState, AppStateStatus } from 'react-native';
 import * as SecureStore from 'expo-secure-store';
 import * as Notifications from 'expo-notifications';
 import { enableDisguise, disableDisguise } from '../../modules/discreet-toggle/src/index';
 import { verifyLocalPin } from '../utils/localPin';
 
 const DISCREET_ENABLED_KEY = 'obhoy_discreet_enabled';
+const GRACE_PERIOD_MS = 5000; // 5-second grace period before auto-locking
 
 type DiscreetModeContextType = {
   discreetModeEnabled: boolean;
@@ -23,6 +24,7 @@ export function DiscreetModeProvider({ children }: { children: React.ReactNode }
   const [discreetModeEnabled, setDiscreetModeEnabled] = useState(false);
   const [isUnlocked, setIsUnlocked] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
+  const backgroundedAt = useRef<number | null>(null);
 
   useEffect(() => {
     SecureStore.getItemAsync(DISCREET_ENABLED_KEY).then((stored) => {
@@ -45,16 +47,36 @@ export function DiscreetModeProvider({ children }: { children: React.ReactNode }
     });
   }, []);
 
+  // --- AUTO-LOCK: Revert to Calculator when backgrounded > 5 seconds ---
+  useEffect(() => {
+    const subscription = AppState.addEventListener('change', (nextState: AppStateStatus) => {
+      if (nextState === 'background' || nextState === 'inactive') {
+        backgroundedAt.current = Date.now();
+      } else if (nextState === 'active' && backgroundedAt.current !== null) {
+        const elapsed = Date.now() - backgroundedAt.current;
+        if (discreetModeEnabled && elapsed > GRACE_PERIOD_MS) {
+          setIsUnlocked(false); // Lock back to Calculator disguise
+        }
+        backgroundedAt.current = null;
+      }
+    });
+
+    return () => subscription.remove();
+  }, [discreetModeEnabled]);
+  // -------------------------------------------------------------------
+
   const enable = useCallback(async () => {
     enableDisguise();
     await SecureStore.setItemAsync(DISCREET_ENABLED_KEY, 'true');
     setDiscreetModeEnabled(true);
+    setIsUnlocked(false);
   }, []);
 
   const disable = useCallback(async () => {
     disableDisguise();
     await SecureStore.setItemAsync(DISCREET_ENABLED_KEY, 'false');
     setDiscreetModeEnabled(false);
+    setIsUnlocked(false);
   }, []);
 
   const unlock = useCallback(async (pin: string) => {
