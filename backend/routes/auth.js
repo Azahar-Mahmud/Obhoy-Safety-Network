@@ -51,7 +51,6 @@ router.post('/signup/start', otpRateLimiter, async (req, res) => {
       await sendSms(phone, `Obhoy verification code: ${otp}`);
     } catch (err) {
       console.error('SMS send failed:', err.message);
-      // Not a fatal error — the mobile client's countdown falls through to PIN-only.
     }
 
     res.json({ phone, otpWindowSeconds: OTP_TTL_MS / 1000 });
@@ -61,23 +60,33 @@ router.post('/signup/start', otpRateLimiter, async (req, res) => {
   }
 });
 
-// Verify the OTP code (optional path — skipped if it timed out)
+// Verify the OTP code (Includes DEMO_MODE bypass)
 router.post('/signup/verify-otp', async (req, res) => {
   try {
     const phone = normalizeToE164(req.body.phone || '');
     const { code } = req.body;
     const user = await User.findOne({ phone });
 
-    if (!user || !user.otpHash || !user.otpExpiresAt) {
+    if (!user) {
       return res.status(400).json({ error: 'No pending code for this number.' });
     }
-    if (user.otpExpiresAt.getTime() < Date.now()) {
-      return res.status(400).json({ error: 'Code expired.' });
+
+    // --- STEP 2: DEMO MODE BYPASS ---
+    const isDemoCode = process.env.DEMO_MODE === 'true' && code === (process.env.DEMO_OTP_CODE || '000000');
+
+    if (!isDemoCode) {
+      if (!user.otpHash || !user.otpExpiresAt) {
+        return res.status(400).json({ error: 'No pending code for this number.' });
+      }
+      if (user.otpExpiresAt.getTime() < Date.now()) {
+        return res.status(400).json({ error: 'Code expired.' });
+      }
+      const match = await bcrypt.compare(code || '', user.otpHash);
+      if (!match) {
+        return res.status(400).json({ error: 'Incorrect code.' });
+      }
     }
-    const match = await bcrypt.compare(code || '', user.otpHash);
-    if (!match) {
-      return res.status(400).json({ error: 'Incorrect code.' });
-    }
+    // ---------------------------------
 
     user.phoneVerified = true;
     user.otpHash = null;
