@@ -6,3 +6,5 @@ export * from './Pill';
 export * from './Avatar';
 export * from './Banner';
 export * from './EmptyState';
+export * from './SosButton';
+export * from './ActiveJourneyBanner';
