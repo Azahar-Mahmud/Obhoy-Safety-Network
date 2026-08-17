@@ -1,7 +1,7 @@
 {
   "expo": {
-    "name": "mobile",
-    "slug": "mobile",
+    "name": "Obhoy",
+    "slug": "obhoy",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
@@ -17,7 +17,8 @@
         "monochromeImage": "./assets/android-icon-monochrome.png"
       },
       "predictiveBackGestureEnabled": false,
-      "package": "com.anonymous.mobile",
+      "package": "com.obhoy.safety",
+      "versionCode": 1,
       "permissions": [
         "ACCESS_NETWORK_STATE",
         "ACCESS_WIFI_STATE",
@@ -44,6 +45,7 @@
     "plugins": [
       "expo-secure-store",
       "./plugins/withDiscreetMode.js",
+      "./plugins/withObhoyReleaseSigning.js",
       "expo-nearby-connections",
       "expo-background-task",
       "expo-camera",
