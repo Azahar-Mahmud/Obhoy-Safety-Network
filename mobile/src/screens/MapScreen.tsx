@@ -14,16 +14,14 @@ import { t, useLanguage } from '../i18n';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'Map'>;
 
+// --- STEP 1: Two-tier color function (NO red anywhere on Map overlay) ---
 function getScoreColor(score: number | null) {
-  if (score === null) return { backgroundColor: '#9CA3AF' }; 
-  if (score >= 4) return { backgroundColor: colors.safe };     
-  if (score >= 3) return { backgroundColor: colors.caution };     
-  return { backgroundColor: colors.caution }; // Respects red-discipline — caution tone                      
+  if (score === null) return { backgroundColor: '#9CA3AF' }; // Neutral gray for no data
+  if (score >= 4) return { backgroundColor: colors.safe };     // Green for safe
+  return { backgroundColor: colors.caution };                  // Amber caution for all non-safe tiers
 }
 
-// --- STEP 1 & 2: Leaflet HTML Builder with Shape-Coded Pins & Family Pins ---
 function buildMapHtml(lat: number, lng: number, reports: any[], checkins: any[], alerts: any[], familyMembers: any[]) {
-  // Shape-coded HTML helpers inside Leaflet
   const markersScript = `
     function pinIconHtml(kind, letter) {
       if (kind === 'safe') {
@@ -70,7 +68,7 @@ function buildMapHtml(lat: number, lng: number, reports: any[], checkins: any[],
     return `addCustomMarker(${c.lat}, ${c.lng}, 'safe', '', ${JSON.stringify(label)});`;
   }).join('\n');
 
-  // 3. Live Community Alerts (Amber Caution Triangles with urgent label)
+  // 3. Live Community Alerts (Amber Caution Triangles)
   const alertPins = alerts.map((a) => {
     const label = `<b>LIVE ALERT: ${a.category.replace(/_/g, ' ').toUpperCase()}</b><br/>Reported in the last 45 mins.`;
     return `addCustomMarker(${a.lat}, ${a.lng}, 'caution', '!', ${JSON.stringify(label)});`;
@@ -138,7 +136,6 @@ export default function MapScreen({ navigation }: Props) {
     const { coords } = await Location.getCurrentPositionAsync({});
     
     try {
-      // Parallel fetch: Reports, Safety Check-ins, Live Alerts, and Family Members
       const [reports, checkins, alerts, familyData] = await Promise.all([
         apiRequest(`/reports/nearby?lat=${coords.latitude}&lng=${coords.longitude}&radius=5`).catch(() => []),
         apiRequest(`/safety-checkins/nearby?lat=${coords.latitude}&lng=${coords.longitude}&radius=5`).catch(() => []),
@@ -146,7 +143,6 @@ export default function MapScreen({ navigation }: Props) {
         apiRequest('/family').catch(() => null)
       ]);
 
-      // Format family members for pins
       const familyMembers = (familyData?.members || [])
         .filter((m: any) => m.location && typeof m.location.lat === 'number')
         .map((m: any) => ({
@@ -186,13 +182,15 @@ export default function MapScreen({ navigation }: Props) {
         <WebView source={{ html }} style={styles.map} originWhitelist={['*']} onMessage={handleMessage} />
       ) : null}
 
-      {/* Floating Area Safety Score Overlay */}
+      {/* --- STEP 2: Qualitative label leads, score and report count are secondary --- */}
       {areaScore && (
         <View style={[styles.scoreOverlay, getScoreColor(areaScore.score)]}>
-          <Text style={styles.scoreText}>
-            {areaScore.score !== null ? `Area Safety: ${areaScore.score}/5` : 'Not enough data'}
-          </Text>
-          <Text style={styles.scoreLabel}>{areaScore.label}</Text>
+          <Text style={styles.scoreLabelPrimary}>{areaScore.label}</Text>
+          {areaScore.score !== null && (
+            <Text style={styles.scoreNumberSecondary}>
+              {areaScore.score}/5 · {areaScore.reportCount} report{areaScore.reportCount === 1 ? '' : 's'}
+            </Text>
+          )}
         </View>
       )}
 
@@ -202,9 +200,13 @@ export default function MapScreen({ navigation }: Props) {
         <Text style={styles.warnButtonText}>Warn Nearby</Text>
       </TouchableOpacity>
 
-      {/* 3-Category Alert Picker */}
+      {/* --- STEP 3: 3-Category Alert Picker with 2km Non-Police Disclaimer --- */}
       {showAlertPicker && (
         <View style={styles.pickerOverlay}>
+          <Text style={styles.disclaimer}>
+            Alerts everyone within about 2km. Does NOT contact police — for emergencies, use SOS or call 999.
+          </Text>
+          
           {(['mugging', 'harassment', 'checkpost_harassment'] as AlertCategory[]).map((category) => (
             <TouchableOpacity
               key={category}
@@ -240,6 +242,7 @@ const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#FFFFFF' },
   map: { flex: 1 },
   
+  // STEP 2 Styles: Visual Hierarchy Swapped
   scoreOverlay: { 
     position: 'absolute', 
     top: 16, 
@@ -254,10 +257,19 @@ const styles = StyleSheet.create({
     shadowRadius: 4,
     shadowOffset: { width: 0, height: 2 }
   },
-  scoreText: { color: '#fff', fontWeight: 'bold', fontSize: 15 },
-  scoreLabel: { color: '#fff', fontSize: 12, marginTop: 2 },
+  scoreLabelPrimary: { fontSize: 15, fontWeight: '700', color: '#FFFFFF', textAlign: 'center' },
+  scoreNumberSecondary: { fontSize: 12, color: '#FFFFFF', opacity: 0.9, marginTop: 2, textAlign: 'center' },
 
-  // STEP 3: High-Contrast Report FAB
+  // STEP 3 Styles: Disclaimer Micro-Copy
+  disclaimer: { 
+    fontSize: 12, 
+    color: colors.textSecondary, 
+    textAlign: 'center', 
+    marginBottom: spacing.xs, 
+    paddingHorizontal: 4, 
+    lineHeight: 16 
+  },
+
   fab: {
     position: 'absolute',
     right: 16,
@@ -269,7 +281,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: 3,
-    borderColor: '#FFFFFF', // High-contrast white halo
+    borderColor: '#FFFFFF',
     shadowColor: '#000',
     shadowOpacity: 0.35,
     shadowRadius: 10,
@@ -281,7 +293,7 @@ const styles = StyleSheet.create({
     position: 'absolute', 
     bottom: 24, 
     left: 16, 
-    backgroundColor: colors.caution, // Amber caution instead of red
+    backgroundColor: colors.caution,
     borderRadius: radii.pill, 
     paddingVertical: 14, 
     paddingHorizontal: 20, 
@@ -301,9 +313,10 @@ const styles = StyleSheet.create({
     position: 'absolute', 
     bottom: 84, 
     left: 16, 
+    right: 16,
     backgroundColor: '#fff', 
     borderRadius: radii.md, 
-    padding: spacing.xs, 
+    padding: spacing.sm, 
     elevation: 8,
     shadowColor: '#000',
     shadowOpacity: 0.25,
