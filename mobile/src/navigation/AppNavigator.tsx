@@ -3,6 +3,9 @@ import { View, ActivityIndicator } from 'react-native';
 import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import * as SecureStore from 'expo-secure-store';
+import PracticeModeScreen from '../screens/PracticeModeScreen';
+import PracticeSosScreen from '../screens/PracticeSosScreen';
+import PracticeCheckinScreen from '../screens/PracticeCheckinScreen';
 
 // Contexts & i18n
 import { useAuth } from '../context/AuthContext';
@@ -112,6 +115,9 @@ export type RootStackParamList = {
   Family: undefined;
   FamilyInvite: undefined;
   FamilyPrivacy: undefined;
+  PracticeMode: undefined;
+  PracticeSos: undefined;
+  PracticeCheckin: undefined;
 };
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
@@ -207,6 +213,9 @@ export default function AppNavigator() {
             <Stack.Screen name="EvidenceCapture" component={EvidenceCaptureScreen} options={{ title: t('home.evidence') }} />
             <Stack.Screen name="EvidenceList" component={EvidenceListScreen} options={{ title: t('home.evidence') }} />
             <Stack.Screen name="EvidenceGallery" component={EvidenceGalleryScreen} options={{ title: 'Evidence Vault' }} />
+            <Stack.Screen name="PracticeMode" component={PracticeModeScreen} options={{ title: 'Practice Mode' }} />
+            <Stack.Screen name="PracticeSos" component={PracticeSosScreen} options={{ title: 'Practice SOS' }} />
+            <Stack.Screen name="PracticeCheckin" component={PracticeCheckinScreen} options={{ title: 'Practice Check-in' }} />
           </>
         )}
       </Stack.Navigator>

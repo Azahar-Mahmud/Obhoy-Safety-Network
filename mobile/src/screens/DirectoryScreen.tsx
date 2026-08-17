@@ -39,6 +39,14 @@ export default function DirectoryScreen({ navigation }: Props) {
             <Text style={styles.sectionHeader}>Help & Guides</Text>
             <Card>
               <ListRow
+                title="Practice Mode"
+                subtitle="Try SOS & check-ins safely without alerting anyone"
+                left={<Feather name="play-circle" size={22} color={colors.primary} style={styles.rowIcon} />}
+                right={<Feather name="chevron-right" size={18} color={colors.textSecondary} />}
+                onPress={() => navigation.navigate('PracticeMode')}
+              />
+              <View style={styles.divider} />
+              <ListRow
                 title="How Obhoy Works"
                 subtitle="A quick guide to staying safe"
                 left={<Feather name="book-open" size={22} color={colors.primary} style={styles.rowIcon} />}
@@ -71,5 +79,6 @@ const styles = StyleSheet.create({
   number: { fontSize: 24, fontWeight: 'bold', color: colors.primary },
   footer: { marginTop: spacing.md },
   sectionHeader: { ...typography.sectionHeading, color: colors.textSecondary, fontSize: 16, marginBottom: spacing.sm },
+  divider: { height: 1, backgroundColor: colors.border, marginVertical: spacing.xs },
   rowIcon: { marginRight: spacing.sm },
 });
