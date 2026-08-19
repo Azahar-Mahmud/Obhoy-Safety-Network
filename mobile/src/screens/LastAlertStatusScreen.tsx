@@ -1,10 +1,13 @@
 import React, { useState, useCallback } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
+import { View, Text, StyleSheet, ScrollView } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
+import { Feather } from '@expo/vector-icons';
 import { RootStackParamList } from '../navigation/AppNavigator';
 import { getLastAlertStatus, LastAlertStatus } from '../utils/lastAlertStatus';
 import { t, useLanguage } from '../i18n';
+import { ScreenHeader, Card, ListRow, Pill, Button, EmptyState } from '../components';
+import { colors, spacing } from '../theme/theme';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'LastAlertStatus'>;
 
@@ -23,48 +26,87 @@ export default function LastAlertStatusScreen({ navigation }: Props) {
   );
 
   const getChannelLabel = (channel: string) => {
-    if (channel === 'backend') return t('sos.channel_backend');
-    if (channel === 'native') return t('sos.channel_native');
-    if (channel === 'lan') return t('sos.channel_lan');
-    if (channel === 'mesh') return t('sos.channel_mesh');
-    return t('sos.channel_failed');
+    if (channel === 'backend') return t('sos.channel_backend') || 'Internet & SMS Gateway';
+    if (channel === 'native') return t('sos.channel_native') || 'Direct Cellular SMS';
+    if (channel === 'lan') return t('sos.channel_lan') || 'Local Wi-Fi (LAN)';
+    if (channel === 'mesh') return t('sos.channel_mesh') || 'Bluetooth Mesh';
+    return t('sos.channel_failed') || 'Alert Failed';
   };
 
   return (
-    <View style={styles.container}>
-      <Text style={styles.title}>{t('sos.last_alert_title')}</Text>
+    <ScrollView style={styles.container} contentContainerStyle={styles.content}>
+      <ScreenHeader
+        title={t('sos.last_alert_title') || 'Last Silent SOS Status'}
+        subtitle="Verification log of your most recent background emergency alert."
+      />
+
       {!checked ? null : !status ? (
-        <Text style={styles.subtitle}>{t('sos.last_alert_none')}</Text>
+        <EmptyState
+          title={t('sos.last_alert_none') || 'No alerts recorded yet'}
+          subtitle="When a Silent SOS or hardware emergency trigger fires, delivery details will be logged here."
+        />
       ) : (
-        <View style={styles.card}>
-          <Text style={styles.label}>Status</Text>
-          <Text style={styles.value}>{getChannelLabel(status.channel)}</Text>
-          <Text style={styles.label}>{t('home.contacts')}</Text>
-          <Text style={styles.value}>{status.contactsNotifiedCount}</Text>
-          <Text style={styles.label}>{t('sos.last_alert_at', { time: '' })}</Text>
-          <Text style={styles.value}>{new Date(status.sentAt).toLocaleString()}</Text>
+        <Card style={styles.statusCard}>
+          <View style={styles.badgeRow}>
+            <Text style={styles.sectionLabel}>DELIVERY CHANNEL</Text>
+            <Pill
+              label={getChannelLabel(status.channel)}
+              tone={status.channel === 'failed' ? 'caution' : 'safe'}
+            />
+          </View>
+
+          <View style={styles.divider} />
+
+          <ListRow
+            title={t('home.contacts') || 'Contacts Notified'}
+            subtitle={`${status.contactsNotifiedCount} contact${status.contactsNotifiedCount === 1 ? '' : 's'} successfully reached`}
+            left={<Feather name="users" size={20} color={colors.primary} style={styles.rowIcon} />}
+          />
+
+          <View style={styles.divider} />
+
+          <ListRow
+            title="Timestamp"
+            subtitle={status.sentAt ? new Date(status.sentAt).toLocaleString() : 'Unknown'}
+            left={<Feather name="clock" size={20} color={colors.primary} style={styles.rowIcon} />}
+          />
+
           {status.error ? (
             <>
-              <Text style={styles.label}>Note</Text>
-              <Text style={styles.value}>{status.error}</Text>
+              <View style={styles.divider} />
+              <ListRow
+                title="Error Note"
+                subtitle={status.error}
+                left={<Feather name="alert-circle" size={20} color={colors.caution} style={styles.rowIcon} />}
+              />
             </>
           ) : null}
-        </View>
+        </Card>
       )}
-      <TouchableOpacity style={styles.button} onPress={() => navigation.goBack()}>
-        <Text style={styles.buttonText}>{t('common.back')}</Text>
-      </TouchableOpacity>
-    </View>
+
+      <View style={styles.buttonWrap}>
+        <Button
+          label={t('common.back') || 'Go Back'}
+          variant="primary"
+          onPress={() => navigation.goBack()}
+        />
+      </View>
+    </ScrollView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, padding: 24, backgroundColor: '#fff' },
-  title: { fontSize: 20, fontWeight: 'bold', color: '#111827', marginBottom: 16 },
-  subtitle: { fontSize: 15, color: '#6B7280' },
-  card: { backgroundColor: '#EDE9FE', borderRadius: 8, padding: 16, marginBottom: 24 },
-  label: { fontSize: 12, color: '#6B7280', marginTop: 10 },
-  value: { fontSize: 16, color: '#111827', fontWeight: '600' },
-  button: { backgroundColor: '#6B21A8', borderRadius: 8, padding: 14, minHeight: 48, alignItems: 'center', justifyContent: 'center', marginTop: 'auto' },
-  buttonText: { color: '#fff', fontSize: 16, fontWeight: 'bold' },
+  container: { flex: 1, backgroundColor: '#FAFAFA' },
+  content: { padding: spacing.lg, paddingBottom: spacing.xxl, flexGrow: 1 },
+  statusCard: { padding: spacing.lg, marginBottom: spacing.xl },
+  badgeRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: spacing.xs,
+  },
+  sectionLabel: { fontSize: 12, fontWeight: '700', color: colors.textSecondary, letterSpacing: 0.5 },
+  divider: { height: 1, backgroundColor: colors.border, marginVertical: spacing.xs },
+  rowIcon: { marginRight: spacing.sm },
+  buttonWrap: { marginTop: 'auto', paddingTop: spacing.md },
 });

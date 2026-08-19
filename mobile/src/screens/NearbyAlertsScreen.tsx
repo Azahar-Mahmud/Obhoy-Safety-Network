@@ -1,9 +1,13 @@
 import React from 'react';
-import { View, Text, FlatList, TouchableOpacity, StyleSheet, Linking } from 'react-native';
+import { View, Text, FlatList, StyleSheet, Linking } from 'react-native';
 import { useLanAlerts } from '../context/LanAlertContext';
 import { useMesh } from '../context/MeshContext';
+import { ScreenHeader, Card, Button, Pill, EmptyState } from '../components';
+import { colors, spacing } from '../theme/theme';
+import { t, useLanguage } from '../i18n';
 
 export default function NearbyAlertsScreen() {
+  useLanguage();
   const { alerts: lanAlerts } = useLanAlerts();
   const { meshAlerts } = useMesh();
 
@@ -17,30 +21,71 @@ export default function NearbyAlertsScreen() {
       <FlatList
         data={alerts}
         keyExtractor={(item: any, i) => String(item.id || item.sentAt || i)}
-        renderItem={({ item }: { item: any }) => (
-          <View style={styles.card}>
-            <Text style={styles.message}>{item.message}</Text>
-            <Text style={styles.time}>{new Date(item.receivedAt).toLocaleTimeString()}</Text>
-            <TouchableOpacity
-              style={styles.button}
-              onPress={() => Linking.openURL(`https://www.google.com/maps?q=${item.lat},${item.lng}`)}
-            >
-              <Text style={styles.buttonText}>View Location</Text>
-            </TouchableOpacity>
+        contentContainerStyle={styles.content}
+        ListHeaderComponent={
+          <View style={styles.headerWrap}>
+            <ScreenHeader
+              title={t('home.nearby_alerts') || 'Nearby Alerts'}
+              subtitle="Local Wi-Fi and Bluetooth Mesh broadcasts received from nearby users."
+            />
           </View>
-        )}
-        ListEmptyComponent={<Text style={styles.empty}>No nearby alerts right now.</Text>}
+        }
+        ListEmptyComponent={
+          <EmptyState
+            title="No nearby alerts right now"
+            subtitle="Security warnings and community check-ins broadcasted within your physical vicinity will appear here."
+          />
+        }
+        renderItem={({ item }: { item: any }) => {
+          const isSafeCheckin = item.message?.includes('safe');
+          return (
+            <Card style={styles.alertCard}>
+              <View style={styles.cardHeaderRow}>
+                <Pill
+                  label={isSafeCheckin ? 'Safe Check-in' : 'Security Alert'}
+                  tone={isSafeCheckin ? 'safe' : 'caution'}
+                />
+                <Text style={styles.timeText}>
+                  {item.receivedAt ? new Date(item.receivedAt).toLocaleTimeString() : 'Just now'}
+                </Text>
+              </View>
+
+              <Text style={styles.messageText}>{item.message}</Text>
+
+              {item.lat && item.lng ? (
+                <Button
+                  label="View Location on Map"
+                  variant="outline"
+                  onPress={() => Linking.openURL(`https://www.google.com/maps?q=${item.lat},${item.lng}`)}
+                  style={styles.mapBtn}
+                />
+              ) : null}
+            </Card>
+          );
+        }}
       />
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, padding: 16 },
-  card: { backgroundColor: '#EDE9FE', borderRadius: 8, padding: 16, marginBottom: 10 },
-  message: { fontSize: 16, color: '#111827' },
-  time: { fontSize: 13, color: '#6B7280', marginTop: 4, marginBottom: 10 },
-  button: { backgroundColor: '#6B21A8', borderRadius: 8, paddingVertical: 10, alignItems: 'center' },
-  buttonText: { color: '#fff', fontWeight: 'bold' },
-  empty: { textAlign: 'center', color: '#6B7280', marginTop: 40 },
+  container: { flex: 1, backgroundColor: '#FAFAFA' },
+  content: { padding: spacing.lg, paddingBottom: spacing.xxl },
+  headerWrap: { marginBottom: spacing.sm },
+  alertCard: { padding: spacing.lg, marginBottom: spacing.md },
+  cardHeaderRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: spacing.sm,
+  },
+  timeText: { fontSize: 12, color: colors.textSecondary, fontWeight: '500' },
+  messageText: {
+    fontSize: 15,
+    color: colors.textPrimary,
+    lineHeight: 22,
+    fontWeight: '600',
+    marginBottom: spacing.md,
+  },
+  mapBtn: { paddingVertical: 8, minHeight: 40 },
 });

@@ -11,24 +11,35 @@ export const lightColors = {
   caution: '#D97706',
   cautionTint: '#FEF3C7',
   
-  // Base
+  // Text (Standard design tokens & aliases)
+  textPrimary: '#111827',
+  textSecondary: '#6B7280',
+  text: '#111827',
+  text2: '#6B7280',
+
+  // Base / Surfaces
+  background: '#FFFFFF',
   bg: '#F7F5FA',
   cardBg: '#FFFFFF',
   inputBg: '#FAFAFB',
   border: '#E5E7EB',
-  text: '#111827',
-  text2: '#6B7280',
   ripple: 'rgba(0, 0, 0, 0.08)',
 };
 
 export const darkColors = {
   ...lightColors,
+  // Dark text tokens & aliases
+  textPrimary: '#F3F4F6',
+  textSecondary: '#9CA3AF',
+  text: '#F3F4F6',
+  text2: '#9CA3AF',
+  
+  // Dark surfaces
+  background: '#0F0C16',
   bg: '#0F0C16',
   cardBg: '#1A1525',
   inputBg: '#130F1C',
   border: '#2D243F',
-  text: '#F3F4F6',
-  text2: '#9CA3AF',
   primaryLight: '#3B2D59',
   primaryTint: '#211930',
   ripple: 'rgba(255, 255, 255, 0.1)',
