@@ -1,11 +1,14 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, Vibration, BackHandler } from 'react-native';
+import { View, Text, StyleSheet, Vibration, BackHandler, ScrollView } from 'react-native';
+import { Feather } from '@expo/vector-icons';
 import { triggerSos } from '../utils/sos';
 import { apiRequest } from '../api/client';
 import { showOverLockScreen, hideOverLockScreen } from '../../modules/lock-screen-display/src';
 import { t, useLanguage } from '../i18n';
+import { Button } from '../components';
+import { colors, spacing } from '../theme/theme';
 
-const COUNTDOWN_SECONDS = 5 * 60; 
+const COUNTDOWN_SECONDS = 30; // 30-second emergency response window
 
 type Props = { 
   onResolved: () => void; 
@@ -15,6 +18,7 @@ type Props = {
 export default function FallDetectedScreen({ onResolved, onEscalate }: Props) {
   useLanguage();
   const [secondsLeft, setSecondsLeft] = useState(COUNTDOWN_SECONDS);
+  const [escalating, setEscalating] = useState(false);
   const firedRef = useRef(false);
 
   useEffect(() => {
@@ -45,6 +49,7 @@ export default function FallDetectedScreen({ onResolved, onEscalate }: Props) {
   }, []);
 
   const escalate = async () => {
+    setEscalating(true);
     try {
       const contacts = await apiRequest('/contacts');
       await triggerSos(contacts);
@@ -58,41 +63,82 @@ export default function FallDetectedScreen({ onResolved, onEscalate }: Props) {
     onResolved();
   };
 
-  const minutes = Math.floor(secondsLeft / 60);
-  const seconds = secondsLeft % 60;
-
   return (
     <View style={styles.container}>
-      <Text style={styles.title}>{t('fall.title')}</Text>
-      <Text style={styles.subtitle}>{t('fall.title')}</Text>
-      
-      <Text style={styles.timer}>
-        {minutes}:{seconds.toString().padStart(2, '0')}
-      </Text>
-      
-      <Text style={styles.hint}>
-        {t('fall.countdown', { seconds: secondsLeft })}
-      </Text>
-      
-      <TouchableOpacity style={styles.okButton} onPress={handleImOkay}>
-        <Text style={styles.okText}>{t('fall.im_okay')}</Text>
-      </TouchableOpacity>
+      <ScrollView contentContainerStyle={styles.content}>
+        {/* 1. Pulsing Siren Warning Icon */}
+        <View style={styles.sirenOuter}>
+          <View style={styles.sirenInner}>
+            <Feather name="zap" size={36} color="#FFFFFF" />
+          </View>
+        </View>
+
+        {/* 2. High-Urgency Titles */}
+        <Text style={styles.title}>{t('fall.title') || 'Fall Detected!'}</Text>
+        <Text style={styles.subtitle}>
+          Are you okay? A sudden impact was detected.
+        </Text>
+
+        {/* 3. Prominent Countdown Timer */}
+        <Text style={styles.timer}>{secondsLeft}s</Text>
+        <Text style={styles.hint}>
+          {t('fall.countdown', { seconds: secondsLeft }) || `Alerting emergency contacts automatically in ${secondsLeft} seconds`}
+        </Text>
+
+        {/* 4. Action Buttons */}
+        <View style={styles.buttonGroup}>
+          <Button
+            label={`✓ ${t('fall.im_okay') || "I'm OK — Cancel Alert"}`}
+            variant="safe"
+            onPress={handleImOkay}
+            style={styles.okButton}
+          />
+
+          <Button
+            label={escalating ? 'Sending Alert...' : 'Send Emergency SOS Now'}
+            variant="danger"
+            onPress={escalate}
+            disabled={escalating}
+            style={styles.sosButton}
+          />
+        </View>
+      </ScrollView>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { 
-    flex: 1, 
-    backgroundColor: '#DC2626', 
+  container: { flex: 1, backgroundColor: '#0F0C16' },
+  content: { 
+    flexGrow: 1, 
     justifyContent: 'center', 
     alignItems: 'center', 
-    padding: 24 
+    padding: spacing.xl,
+    paddingVertical: 40 
   },
-  title: { fontSize: 32, fontWeight: 'bold', color: '#fff', marginBottom: 8, textAlign: 'center' },
-  subtitle: { fontSize: 16, color: '#fff', marginBottom: 24, textAlign: 'center' },
-  timer: { fontSize: 56, fontWeight: 'bold', color: '#fff', marginBottom: 24 },
-  hint: { fontSize: 14, color: '#fff', textAlign: 'center', marginBottom: 40, opacity: 0.9 },
-  okButton: { backgroundColor: '#fff', borderRadius: 40, paddingVertical: 20, paddingHorizontal: 48, minHeight: 64, justifyContent: 'center' },
-  okText: { color: '#DC2626', fontSize: 20, fontWeight: 'bold' },
+  sirenOuter: {
+    width: 110,
+    height: 110,
+    borderRadius: 55,
+    backgroundColor: 'rgba(217, 119, 6, 0.2)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: spacing.lg,
+  },
+  sirenInner: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    backgroundColor: colors.caution,
+    alignItems: 'center',
+    justifyContent: 'center',
+    elevation: 8,
+  },
+  title: { fontSize: 30, fontWeight: '900', color: colors.caution, marginBottom: 8, textAlign: 'center' },
+  subtitle: { fontSize: 16, color: '#D1D5DB', textAlign: 'center', marginBottom: spacing.lg, lineHeight: 22 },
+  timer: { fontSize: 64, fontWeight: '900', color: '#FFFFFF', letterSpacing: -1, marginBottom: 4 },
+  hint: { fontSize: 14, color: '#9CA3AF', textAlign: 'center', marginBottom: 40, lineHeight: 20 },
+  buttonGroup: { width: '100%', gap: 14, marginTop: 'auto' },
+  okButton: { minHeight: 60 },
+  sosButton: { minHeight: 52 },
 });

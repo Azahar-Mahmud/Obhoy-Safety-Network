@@ -32,11 +32,7 @@ import AppGuideScreen from '../screens/AppGuideScreen';
 import MapScreen from '../screens/MapScreen';
 import MapPointPickerScreen from '../screens/MapPointPickerScreen';
 import ReportCategoryScreen from '../screens/ReportCategoryScreen';
-import ReportConfirmScreen from '../screens/ReportConfirmScreen';
-import ReportDescriptionScreen from '../screens/ReportDescriptionScreen';
-import ReportSuccessScreen from '../screens/ReportSuccessScreen';
 import EvidenceCaptureScreen from '../screens/EvidenceCaptureScreen';
-import EvidenceListScreen from '../screens/EvidenceListScreen';
 import EvidenceGalleryScreen from '../screens/EvidenceGalleryScreen';
 import NearbyAlertsScreen from '../screens/NearbyAlertsScreen';
 import LastAlertStatusScreen from '../screens/LastAlertStatusScreen';
@@ -73,16 +69,12 @@ export type RootStackParamList = {
   AppGuide: undefined;
   Map: undefined;
   ReportCategory: undefined;
-  ReportConfirm: { category: string };
-  ReportDescription: { category: string; lat: number; lng: number };
-  ReportSuccess: undefined;
   Calculator: undefined;
   Settings: undefined;
   NearbyAlerts: undefined;
   MedicalCardEdit: undefined;
   LastAlertStatus: undefined;
   EvidenceCapture: { autoStart?: boolean } | undefined;
-  EvidenceList: { justSavedPath: string };
   EvidenceGallery: undefined;
   Family: undefined;
   FamilyInvite: undefined;
@@ -131,10 +123,6 @@ export default function AppNavigator() {
 
   return (
     <NavigationContainer>
-      {/* 
-        This is the change! Headers hidden globally, 
-        Slide animations, and background color matches our theme 
-      */}
       <Stack.Navigator screenOptions={{ headerShown: false, animation: 'slide_from_right', contentStyle: { backgroundColor: '#F7F5FA' } }}>
         {showDisguise ? (
           <Stack.Screen name="Calculator" component={CalculatorScreen} />
@@ -171,15 +159,11 @@ export default function AppNavigator() {
             <Stack.Screen name="AppGuide" component={AppGuideScreen} />
             <Stack.Screen name="Map" component={MapScreen} />
             <Stack.Screen name="ReportCategory" component={ReportCategoryScreen} />
-            <Stack.Screen name="ReportConfirm" component={ReportConfirmScreen} />
-            <Stack.Screen name="ReportDescription" component={ReportDescriptionScreen} />
-            <Stack.Screen name="ReportSuccess" component={ReportSuccessScreen} />
             <Stack.Screen name="Settings" component={SettingsScreen} />
             <Stack.Screen name="NearbyAlerts" component={NearbyAlertsScreen} />
             <Stack.Screen name="MedicalCardEdit" component={MedicalCardEditScreen} />
             <Stack.Screen name="LastAlertStatus" component={LastAlertStatusScreen} />
             <Stack.Screen name="EvidenceCapture" component={EvidenceCaptureScreen} />
-            <Stack.Screen name="EvidenceList" component={EvidenceListScreen} />
             <Stack.Screen name="EvidenceGallery" component={EvidenceGalleryScreen} />
             <Stack.Screen name="PracticeMode" component={PracticeModeScreen} />
             <Stack.Screen name="PracticeSos" component={PracticeSosScreen} />

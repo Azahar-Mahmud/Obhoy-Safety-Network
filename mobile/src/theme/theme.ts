@@ -11,14 +11,14 @@ export const lightColors = {
   caution: '#D97706',
   cautionTint: '#FEF3C7',
   
-  // Text (Standard design tokens & aliases)
+  // Text
   textPrimary: '#111827',
   textSecondary: '#6B7280',
   text: '#111827',
   text2: '#6B7280',
 
-  // Base / Surfaces
-  background: '#FFFFFF',
+  // Base / Surfaces — both background and bg are now the soft canvas #F7F5FA
+  background: '#F7F5FA',
   bg: '#F7F5FA',
   cardBg: '#FFFFFF',
   inputBg: '#FAFAFB',
@@ -28,13 +28,10 @@ export const lightColors = {
 
 export const darkColors = {
   ...lightColors,
-  // Dark text tokens & aliases
   textPrimary: '#F3F4F6',
   textSecondary: '#9CA3AF',
   text: '#F3F4F6',
   text2: '#9CA3AF',
-  
-  // Dark surfaces
   background: '#0F0C16',
   bg: '#0F0C16',
   cardBg: '#1A1525',
@@ -45,7 +42,6 @@ export const darkColors = {
   ripple: 'rgba(255, 255, 255, 0.1)',
 };
 
-// Default export for backwards compatibility
 export const colors = lightColors;
 
 export const typography = {

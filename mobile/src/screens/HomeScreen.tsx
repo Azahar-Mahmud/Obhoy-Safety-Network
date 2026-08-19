@@ -27,7 +27,6 @@ export default function HomeScreen({ navigation }: Props) {
   const [showEvidenceCapture, setShowEvidenceCapture] = useState(false);
   const [userName, setUserName] = useState<string>('there');
 
-  // Formatted date header
   const today = new Date().toLocaleDateString('en-US', { weekday: 'long', day: 'numeric', month: 'short' });
 
   useFocusEffect(
@@ -40,7 +39,6 @@ export default function HomeScreen({ navigation }: Props) {
         .then(setActiveJourney)
         .catch(() => setActiveJourney(null));
 
-      // Load dynamic user name from secure cache
       SecureStore.getItemAsync('obhoy_user_name')
         .then((name) => {
           if (name && name.trim()) setUserName(name.trim());
@@ -68,7 +66,7 @@ export default function HomeScreen({ navigation }: Props) {
     <View style={styles.container}>
       <ScrollView contentContainerStyle={styles.content}>
         
-        {/* 1. Header Section with Dynamic User Greeting */}
+        {/* Header Section */}
         <View style={styles.headerRow}>
           <View style={{ flex: 1 }}>
             <Text style={styles.dateText}>{today}</Text>
@@ -82,7 +80,7 @@ export default function HomeScreen({ navigation }: Props) {
           />
         </View>
 
-        {/* 2. Active Journey Banner (if running) */}
+        {/* Global Journey Banner */}
         <ActiveJourneyBanner 
           activeJourney={activeJourney} 
           onPress={() => navigation.navigate('ActiveJourney', {
@@ -91,7 +89,7 @@ export default function HomeScreen({ navigation }: Props) {
           })}
         />
 
-        {/* 3. Hero SOS Button */}
+        {/* Hero SOS Button */}
         <View style={styles.heroWrap}>
           <View style={styles.sosRingOuter}>
             <SosButton onTrigger={handleSosTrigger} />
@@ -99,7 +97,7 @@ export default function HomeScreen({ navigation }: Props) {
           <Text style={styles.hintText}>Hold for 1s, or use volume shortcut</Text>
         </View>
 
-        {/* 4. Quick Actions Grid */}
+        {/* Quick Actions Grid */}
         <View style={styles.quickGrid}>
           <Pressable 
             android_ripple={{ color: colors.ripple }}
@@ -124,12 +122,12 @@ export default function HomeScreen({ navigation }: Props) {
             onPress={() => setShowEvidenceCapture(true)}
           >
             <Feather name="camera" size={24} color={colors.caution} style={{ marginBottom: 8 }} />
-            <Text style={styles.quickCardTitle}>Capture Evidence</Text>
+            <Text style={styles.quickCardTitle}>Capture</Text>
             <Text style={styles.quickCardSubtitle}>Photo / 3m Video</Text>
           </Pressable>
         </View>
 
-        {/* 5. Location & Safety Map Card */}
+        {/* Safety Map Card */}
         <Text style={styles.sectionHeading}>Safety & Community</Text>
         <Pressable onPress={() => navigation.navigate('Map')}>
           <Card style={styles.mapCard}>
@@ -158,7 +156,7 @@ export default function HomeScreen({ navigation }: Props) {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: colors.background },
+  container: { flex: 1, backgroundColor: colors.bg },
   content: { padding: spacing.lg, paddingBottom: spacing.xxl + 20 },
   headerRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: spacing.lg },
   dateText: { fontSize: 13, color: colors.textSecondary, fontWeight: '600', marginBottom: 2 },
@@ -178,7 +176,7 @@ const styles = StyleSheet.create({
   quickGrid: { flexDirection: 'row', gap: spacing.md, marginVertical: spacing.lg },
   quickCard: {
     flex: 1,
-    backgroundColor: colors.background,
+    backgroundColor: colors.cardBg,
     borderRadius: radii.lg,
     padding: spacing.lg,
     borderWidth: 1,

@@ -1,9 +1,17 @@
 import React, { useState } from 'react';
-import { View, Text, TextInput, TouchableOpacity, StyleSheet, Alert } from 'react-native';
+import { View, Text, TextInput, StyleSheet, ScrollView, Alert } from 'react-native';
+import { NativeStackScreenProps } from '@react-navigation/native-stack';
+import { Feather } from '@expo/vector-icons';
+import { RootStackParamList } from '../navigation/AppNavigator';
+
+import { ScreenHeader, Card, Button } from '../components';
+import { colors, radii, spacing, typography } from '../theme/theme';
 import { t, useLanguage } from '../i18n';
 import { inviteByPhone } from '../utils/familyLocation';
 
-export default function FamilyInviteScreen({ navigation }: any) {
+type Props = NativeStackScreenProps<RootStackParamList, 'FamilyInvite'>;
+
+export default function FamilyInviteScreen({ navigation }: Props) {
   useLanguage();
   const [phone, setPhone] = useState('');
   const [busy, setBusy] = useState(false);
@@ -14,53 +22,78 @@ export default function FamilyInviteScreen({ navigation }: any) {
     try {
       const result = await inviteByPhone(phone.trim());
       if (result.invited) {
-        Alert.alert(t('family.invite_sent_title'), t('family.invite_sent_body'));
+        Alert.alert(t('family.invite_sent_title') || 'Invite Sent', t('family.invite_sent_body') || 'Your family invite was sent successfully.');
       } else {
-        Alert.alert(t('family.not_a_user_title'), t('family.not_a_user_body'));
+        Alert.alert(t('family.not_a_user_title') || 'User Not Registered', t('family.not_a_user_body') || 'The phone number is not registered on Obhoy yet.');
       }
       navigation.goBack();
     } catch (err: any) {
-      Alert.alert(t('common.error'), err?.message ?? '');
+      Alert.alert(t('common.error') || 'Error', err?.message ?? 'Could not send invite.');
     } finally {
       setBusy(false);
     }
   };
 
   return (
-    <View style={styles.container}>
-      <Text style={styles.title}>{t('family.add_member')}</Text>
-      <Text style={styles.hint}>{t('family.add_hint')}</Text>
-
-      <TextInput
-        style={styles.input}
-        value={phone}
-        onChangeText={setPhone}
-        placeholder="01XXXXXXXXX"
-        keyboardType="phone-pad"
-        autoFocus
+    <ScrollView style={styles.container} contentContainerStyle={styles.content}>
+      <ScreenHeader
+        title={t('family.add_member') || 'Invite Family Member'}
+        subtitle={t('family.add_hint') || 'Both family members must agree before location sharing becomes active.'}
       />
 
-      <TouchableOpacity style={styles.button} onPress={submit} disabled={busy}>
-        <Text style={styles.buttonText}>{t('family.send_invite')}</Text>
-      </TouchableOpacity>
+      <Card style={styles.card}>
+        <Text style={styles.inputLabel}>Family Member Phone Number</Text>
+        <TextInput
+          style={styles.input}
+          value={phone}
+          onChangeText={setPhone}
+          placeholder="e.g. 017XXXXXXXX"
+          placeholderTextColor={colors.textSecondary}
+          keyboardType="phone-pad"
+          autoFocus
+        />
 
-      <Text style={styles.mutualNote}>{t('family.mutual_note')}</Text>
-    </View>
+        <Button
+          label={busy ? 'Sending...' : (t('family.send_invite') || 'Send Invite')}
+          variant="primary"
+          onPress={submit}
+          disabled={busy || phone.trim().length < 6}
+          style={styles.submitBtn}
+        />
+      </Card>
+
+      <View style={styles.infoBox}>
+        <Feather name="shield" size={18} color={colors.primary} style={{ marginRight: 8 }} />
+        <Text style={styles.infoText}>
+          {t('family.mutual_note') || 'Family sharing is always mutual. You can pause or revoke sharing at any time.'}
+        </Text>
+      </View>
+    </ScrollView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, padding: 20, backgroundColor: '#FFFFFF' },
-  title: { fontSize: 20, fontWeight: 'bold', color: '#111827', marginBottom: 6 },
-  hint: { fontSize: 14, color: '#6B7280', marginBottom: 20 },
+  container: { flex: 1, backgroundColor: '#FAFAFA' },
+  content: { padding: spacing.lg, paddingBottom: spacing.xxl },
+  card: { padding: spacing.lg, marginBottom: spacing.md },
+  inputLabel: { fontSize: 13, fontWeight: '700', color: colors.textSecondary, marginBottom: spacing.xs },
   input: {
-    borderWidth: 1, borderColor: '#6B7280', borderRadius: 8,
-    paddingHorizontal: 14, minHeight: 52, fontSize: 18, color: '#111827',
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1.5,
+    borderColor: colors.border,
+    borderRadius: radii.md,
+    padding: 14,
+    fontSize: 16,
+    color: colors.textPrimary,
+    marginBottom: spacing.md,
   },
-  button: {
-    backgroundColor: '#6B21A8', borderRadius: 8, minHeight: 52,
-    justifyContent: 'center', alignItems: 'center', marginTop: 20,
+  submitBtn: { marginTop: spacing.xs },
+  infoBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: colors.primaryLight,
+    borderRadius: radii.md,
+    padding: spacing.md,
   },
-  buttonText: { color: '#FFFFFF', fontSize: 18, fontWeight: 'bold' },
-  mutualNote: { fontSize: 13, color: '#6B7280', marginTop: 24, lineHeight: 20 },
+  infoText: { fontSize: 13, color: colors.primary, flex: 1, fontWeight: '500', lineHeight: 18 },
 });
