@@ -23,15 +23,19 @@ class DiscreetToggleModule : Module() {
     val pm = context.packageManager
     val pkg = context.packageName
 
-    val mainActivity = ComponentName(pkg, "$pkg.MainActivity")
+    // Point to the dedicated default alias rather than disabling the base activity
+    val defaultAlias = ComponentName(pkg, "$pkg.MainActivityDefault")
     val calculatorAlias = ComponentName(pkg, "$pkg.CalculatorDisguiseActivity")
 
+    // Disable Default "Obhoy" Icon when disguised, Enable when normal
     pm.setComponentEnabledSetting(
-      mainActivity,
+      defaultAlias,
       if (disguised) PackageManager.COMPONENT_ENABLED_STATE_DISABLED
       else PackageManager.COMPONENT_ENABLED_STATE_ENABLED,
       PackageManager.DONT_KILL_APP
     )
+
+    // Enable "Calculator" Disguise Icon when disguised, Disable when normal
     pm.setComponentEnabledSetting(
       calculatorAlias,
       if (disguised) PackageManager.COMPONENT_ENABLED_STATE_ENABLED

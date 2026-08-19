@@ -12,7 +12,6 @@
     "crypto-js": "^4.2.0",
     "discreet-toggle": "file:./modules/discreet-toggle",
     "expo": "~57.0.7",
-    "expo-av": "^16.0.8",
     "expo-background-task": "~57.0.8",
     "expo-battery": "~57.0.1",
     "expo-camera": "~57.0.3",
