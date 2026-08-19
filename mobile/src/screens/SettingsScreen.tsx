@@ -1,20 +1,23 @@
-import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, Alert, Pressable, ScrollView } from 'react-native';
-import { useNavigation } from '@react-navigation/native';
+import React, { useState, useEffect, useCallback } from 'react';
+import { View, Text, StyleSheet, Alert, Pressable, ScrollView, StatusBar, Platform } from 'react-native';
+import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as SecureStore from 'expo-secure-store';
 import { Feather } from '@expo/vector-icons';
 
 import { RootStackParamList } from '../navigation/AppNavigator';
+import { useAuth } from '../context/AuthContext';
 import { useDiscreetMode } from '../context/DiscreetModeContext';
 import { useSilentMode } from '../context/SilentModeContext';
+import { useTheme } from '../context/ThemeContext';
 import { isAutoAudioEnabled, getAutoAudioLengthSeconds } from '../utils/autoAudioCapture';
+import { apiRequest } from '../api/client';
 import { t, useLanguage } from '../i18n';
 import LanguageToggle from '../components/LanguageToggle';
 
-// Design System Components
-import { ScreenHeader, Card, ListRow, Toggle } from '../components';
-import { colors, spacing, typography, radii } from '../theme/theme';
+import { ScreenHeader, Card, ListRow, Toggle, Avatar } from '../components';
+import { spacing, typography, radii } from '../theme/theme';
 
 const FALL_DETECTION_KEY = 'obhoy_fall_detection_enabled';
 const FALL_SENSITIVITY_KEY = 'obhoy_fall_sensitivity';
@@ -25,15 +28,47 @@ type NavProp = NativeStackNavigationProp<RootStackParamList, 'Settings'>;
 
 export default function SettingsScreen() {
   useLanguage();
+  const insets = useSafeAreaInsets();
   const navigation = useNavigation<NavProp>();
+  const { signOut } = useAuth();
+  const { colors, isDark, toggleTheme } = useTheme();
   const { discreetModeEnabled, enable, disable } = useDiscreetMode();
   const { silentModeEnabled, toggleSilentMode } = useSilentMode() as any;
 
+  const topPadding = Platform.OS === 'android' 
+    ? Math.max(insets.top, (StatusBar.currentHeight || 28)) + 6
+    : Math.max(insets.top, 20);
+
+  const [userName, setUserName] = useState('User');
+  const [userPhone, setUserPhone] = useState('+880 1XXXXXXXXX');
+  const [contacts, setContacts] = useState<any[]>([]);
   const [busy, setBusy] = useState(false);
   const [fallEnabled, setFallEnabled] = useState(false);
   const [sensitivity, setSensitivity] = useState<'low' | 'medium' | 'high'>('medium');
   const [audioOn, setAudioOn] = useState(false);
   const [audioLength, setAudioLength] = useState(60);
+
+  useFocusEffect(
+    useCallback(() => {
+      apiRequest('/contacts')
+        .then((data) => {
+          if (Array.isArray(data)) setContacts(data);
+        })
+        .catch(() => {});
+
+      SecureStore.getItemAsync('obhoy_user_name')
+        .then((name) => {
+          if (name && name.trim()) setUserName(name.trim());
+        })
+        .catch(() => {});
+
+      SecureStore.getItemAsync('obhoy_user_phone')
+        .then((phone) => {
+          if (phone && phone.trim()) setUserPhone(phone.trim());
+        })
+        .catch(() => {});
+    }, [])
+  );
 
   useEffect(() => {
     SecureStore.getItemAsync(FALL_DETECTION_KEY).then((v) => setFallEnabled(v === 'true')).catch(() => {});
@@ -48,7 +83,7 @@ export default function SettingsScreen() {
     if (value) {
       Alert.alert(
         'Enable Discreet Mode?',
-        'Obhoy will now disguise itself as a calculator on your home screen.\n\nEnter your PIN and tap "=" to unlock.\n\nNote: The app will refresh to update the icon.',
+        'Obhoy will disguise itself as a working calculator on your home screen.\n\nEnter your PIN and tap "=" to unlock.',
         [
           { text: t('common.cancel'), style: 'cancel' },
           {
@@ -87,157 +122,251 @@ export default function SettingsScreen() {
   };
 
   return (
-    <ScrollView style={styles.container} contentContainerStyle={styles.content}>
-      <ScreenHeader
-        title={t('settings.title') || 'Settings'}
-        subtitle="Configure emergency triggers, privacy disguise & preferences."
+    <View style={[styles.container, { backgroundColor: colors.bg, paddingTop: topPadding }]}>
+      <StatusBar 
+        barStyle={isDark ? 'light-content' : 'dark-content'} 
+        backgroundColor={colors.bg} 
+        translucent 
       />
 
-      {/* 1. Language Section */}
-      <Text style={styles.sectionHeading}>Language & Appearance</Text>
-      <Card style={styles.card}>
-        <LanguageToggle />
-      </Card>
-
-      {/* 2. Privacy & Disguise */}
-      <Text style={styles.sectionHeading}>Privacy & Disguise</Text>
-      <Card style={styles.card}>
-        <ListRow
-          title={t('settings.discreet') || 'Calculator Disguise'}
-          subtitle={t('settings.discreet_hint') || 'Disguises Obhoy icon and locks with your PIN'}
-          left={<Feather name="eye-off" size={20} color={colors.primary} style={styles.rowIcon} />}
-          right={<Toggle value={discreetModeEnabled} onChange={handleDiscreetToggle} />}
-        />
-      </Card>
-
-      {/* 3. Emergency SOS Automations */}
-      <Text style={styles.sectionHeading}>Emergency Automations</Text>
-      <Card style={styles.card}>
-        {/* Silent Mode */}
-        <ListRow
-          title="Silent SOS Mode"
-          subtitle="Triggers alert without sirens, vibrations, or countdown sounds"
-          left={<Feather name="volume-x" size={20} color={colors.primary} style={styles.rowIcon} />}
-          right={<Toggle value={silentModeEnabled} onChange={toggleSilentMode} />}
+      <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+        <ScreenHeader
+          title={t('settings.title') || 'Me & Security'}
+          subtitle="Manage your profile, safety circle & emergency preferences."
         />
 
-        <View style={styles.divider} />
-
-        {/* Auto Audio Record */}
-        <ListRow
-          title="Auto-Record Audio on SOS"
-          subtitle={audioOn ? `Active — saves ${audioLength}s encrypted audio clip` : 'Off'}
-          left={<Feather name="mic" size={20} color={colors.primary} style={styles.rowIcon} />}
-          right={<Toggle value={audioOn} onChange={handleAudioToggle} />}
-        />
-
-        {audioOn && (
-          <View style={styles.chipRow}>
-            {[30, 60, 120].map((s) => (
-              <Pressable
-                key={s}
-                style={[styles.chip, audioLength === s && styles.chipActive]}
-                onPress={() => handleAudioLength(s)}
-              >
-                <Text style={[styles.chipText, audioLength === s && styles.chipTextActive]}>
-                  {s}s
-                </Text>
-              </Pressable>
-            ))}
+        {/* 1. Profile Hero Card */}
+        <Card style={styles.profileCard}>
+          <View style={styles.profileRow}>
+            <Avatar initial={userName[0]?.toUpperCase() || 'U'} size={54} />
+            <View style={{ marginLeft: 14, flex: 1 }}>
+              <Text style={[styles.profileName, { color: colors.textPrimary }]}>{userName}</Text>
+              <Text style={[styles.profilePhone, { color: colors.textSecondary }]}>{userPhone}</Text>
+            </View>
+            <View style={[styles.activePill, { backgroundColor: colors.safeTint }]}>
+              <Text style={[styles.activePillText, { color: colors.safe }]}>Active</Text>
+            </View>
           </View>
-        )}
+        </Card>
 
-        <View style={styles.divider} />
+        {/* 2. Language & Appearance */}
+        <Text style={[styles.sectionHeading, { color: colors.textSecondary }]}>APPEARANCE</Text>
+        <Card style={styles.card}>
+          <LanguageToggle />
+          <View style={[styles.divider, { backgroundColor: colors.border }]} />
+          <ListRow
+            title="Dark Theme"
+            subtitle={isDark ? 'Deep contrast mode active' : 'Soft daylight theme'}
+            left={<Feather name={isDark ? 'moon' : 'sun'} size={20} color={colors.primary} style={styles.rowIcon} />}
+            right={<Toggle value={isDark} onChange={toggleTheme} />}
+          />
+        </Card>
 
-        {/* Fall Detection */}
-        <ListRow
-          title={t('settings.fall_detection') || 'Fall Detection'}
-          subtitle="Detects impact and checks in before alerting contacts"
-          left={<Feather name="activity" size={20} color={colors.primary} style={styles.rowIcon} />}
-          right={<Toggle value={fallEnabled} onChange={toggleFallDetection} />}
-        />
+        {/* 3. Safety Network (TRUSTED CONTACTS & FAMILY) */}
+        <Text style={[styles.sectionHeading, { color: colors.textSecondary }]}>SAFETY NETWORK</Text>
+        <Card style={styles.card}>
+          <ListRow
+            title={t('contacts.title') || 'Trusted Contacts'}
+            subtitle={`${contacts.length}/5 contacts set to receive SOS alerts`}
+            left={<Feather name="users" size={20} color={colors.primary} style={styles.rowIcon} />}
+            right={<Feather name="chevron-right" size={18} color={colors.textSecondary} />}
+            onPress={() => navigation.navigate('ContactsList')}
+          />
 
-        {fallEnabled && (
-          <View style={styles.chipRow}>
-            {(['low', 'medium', 'high'] as const).map((level) => (
-              <Pressable
-                key={level}
-                style={[styles.chip, sensitivity === level && styles.chipActive]}
-                onPress={() => changeSensitivity(level)}
-              >
-                <Text style={[styles.chipText, sensitivity === level && styles.chipTextActive]}>
-                  {t(`settings.sensitivity_${level}` as any) || level}
-                </Text>
-              </Pressable>
-            ))}
-          </View>
-        )}
-      </Card>
+          <View style={[styles.divider, { backgroundColor: colors.border }]} />
 
-      {/* 4. Vault, Medical ID & Logs */}
-      <Text style={styles.sectionHeading}>Health, Vault & Logs</Text>
-      <Card style={styles.card}>
-        <ListRow
-          title="Evidence Vault"
-          subtitle="Encrypted photos, videos & audio clips"
-          left={<Feather name="shield" size={20} color={colors.primary} style={styles.rowIcon} />}
-          right={<Feather name="chevron-right" size={18} color={colors.textSecondary} />}
-          onPress={() => navigation.navigate('EvidenceGallery' as any)}
-        />
+          {contacts.length < 5 && (
+            <>
+              <ListRow
+                title="Add Trusted Contact"
+                subtitle="Add family or friends who should be alerted"
+                left={<Feather name="user-plus" size={20} color={colors.safe} style={styles.rowIcon} />}
+                right={<Feather name="plus" size={18} color={colors.safe} />}
+                onPress={() => navigation.navigate('AddContact')}
+              />
+              <View style={[styles.divider, { backgroundColor: colors.border }]} />
+            </>
+          )}
 
-        <View style={styles.divider} />
+          <ListRow
+            title="Family Circle Hub"
+            subtitle="Two-way mutual live location & battery sharing"
+            left={<Feather name="shield" size={20} color={colors.primary} style={styles.rowIcon} />}
+            right={<Feather name="chevron-right" size={18} color={colors.textSecondary} />}
+            onPress={() => navigation.navigate('Family')}
+          />
+        </Card>
 
-        <ListRow
-          title={t('settings.medical_card') || 'Medical ID'}
-          subtitle="Blood type, allergies, emergency notes"
-          left={<Feather name="heart" size={20} color={colors.primary} style={styles.rowIcon} />}
-          right={<Feather name="chevron-right" size={18} color={colors.textSecondary} />}
-          onPress={() => navigation.navigate('MedicalCardEdit')}
-        />
+        {/* 4. Privacy & Disguise */}
+        <Text style={[styles.sectionHeading, { color: colors.textSecondary }]}>PRIVACY & DISGUISE</Text>
+        <Card style={styles.card}>
+          <ListRow
+            title={t('settings.discreet') || 'Calculator Disguise'}
+            subtitle={t('settings.discreet_hint') || 'Disguises Obhoy icon and locks with your PIN'}
+            left={<Feather name="eye-off" size={20} color={colors.primary} style={styles.rowIcon} />}
+            right={<Toggle value={discreetModeEnabled} onChange={handleDiscreetToggle} />}
+          />
+        </Card>
 
-        <View style={styles.divider} />
+        {/* 5. Emergency SOS Automations */}
+        <Text style={[styles.sectionHeading, { color: colors.textSecondary }]}>EMERGENCY AUTOMATIONS</Text>
+        <Card style={styles.card}>
+          <ListRow
+            title="Silent SOS Mode"
+            subtitle="Triggers alert without sirens, sounds, or vibrations"
+            left={<Feather name="volume-x" size={20} color={colors.primary} style={styles.rowIcon} />}
+            right={<Toggle value={silentModeEnabled} onChange={toggleSilentMode} />}
+          />
 
-        <ListRow
-          title={t('sos.last_alert_title') || 'Last Alert Status'}
-          subtitle="View delivery logs from your most recent SOS"
-          left={<Feather name="clock" size={20} color={colors.primary} style={styles.rowIcon} />}
-          right={<Feather name="chevron-right" size={18} color={colors.textSecondary} />}
-          onPress={() => navigation.navigate('LastAlertStatus')}
-        />
-      </Card>
-    </ScrollView>
+          <View style={[styles.divider, { backgroundColor: colors.border }]} />
+
+          <ListRow
+            title="Auto-Record Audio on SOS"
+            subtitle={audioOn ? `Active — saves ${audioLength}s encrypted audio` : 'Off'}
+            left={<Feather name="mic" size={20} color={colors.primary} style={styles.rowIcon} />}
+            right={<Toggle value={audioOn} onChange={handleAudioToggle} />}
+          />
+
+          {audioOn && (
+            <View style={styles.chipRow}>
+              {[30, 60, 120].map((s) => (
+                <Pressable
+                  key={s}
+                  style={[styles.chip, { backgroundColor: colors.primaryLight }, audioLength === s && { backgroundColor: colors.primary }]}
+                  onPress={() => handleAudioLength(s)}
+                >
+                  <Text style={[styles.chipText, { color: colors.primary }, audioLength === s && { color: '#FFFFFF' }]}>
+                    {s}s
+                  </Text>
+                </Pressable>
+              ))}
+            </View>
+          )}
+
+          <View style={[styles.divider, { backgroundColor: colors.border }]} />
+
+          <ListRow
+            title={t('settings.fall_detection') || 'Fall Detection'}
+            subtitle="Detects impact and checks in before alerting contacts"
+            left={<Feather name="activity" size={20} color={colors.primary} style={styles.rowIcon} />}
+            right={<Toggle value={fallEnabled} onChange={toggleFallDetection} />}
+          />
+
+          {fallEnabled && (
+            <View style={styles.chipRow}>
+              {(['low', 'medium', 'high'] as const).map((level) => (
+                <Pressable
+                  key={level}
+                  style={[styles.chip, { backgroundColor: colors.primaryLight }, sensitivity === level && { backgroundColor: colors.primary }]}
+                  onPress={() => changeSensitivity(level)}
+                >
+                  <Text style={[styles.chipText, { color: colors.primary }, sensitivity === level && { color: '#FFFFFF' }]}>
+                    {t(`settings.sensitivity_${level}` as any) || level}
+                  </Text>
+                </Pressable>
+              ))}
+            </View>
+          )}
+        </Card>
+
+        {/* 6. Vault, Medical ID & Logs */}
+        <Text style={[styles.sectionHeading, { color: colors.textSecondary }]}>VAULT, HEALTH & LOGS</Text>
+        <Card style={styles.card}>
+          <ListRow
+            title="Evidence Vault"
+            subtitle="Encrypted photos, videos & audio clips"
+            left={<Feather name="folder" size={20} color={colors.primary} style={styles.rowIcon} />}
+            right={<Feather name="chevron-right" size={18} color={colors.textSecondary} />}
+            onPress={() => navigation.navigate('EvidenceGallery')}
+          />
+
+          <View style={[styles.divider, { backgroundColor: colors.border }]} />
+
+          <ListRow
+            title={t('settings.medical_card') || 'Medical ID'}
+            subtitle="Blood type, allergies, emergency notes"
+            left={<Feather name="heart" size={20} color={colors.primary} style={styles.rowIcon} />}
+            right={<Feather name="chevron-right" size={18} color={colors.textSecondary} />}
+            onPress={() => navigation.navigate('MedicalCardEdit')}
+          />
+
+          <View style={[styles.divider, { backgroundColor: colors.border }]} />
+
+          <ListRow
+            title={t('sos.last_alert_title') || 'Last Alert Status'}
+            subtitle="View delivery logs from your most recent SOS"
+            left={<Feather name="clock" size={20} color={colors.primary} style={styles.rowIcon} />}
+            right={<Feather name="chevron-right" size={18} color={colors.textSecondary} />}
+            onPress={() => navigation.navigate('LastAlertStatus')}
+          />
+        </Card>
+
+        {/* Logout Button */}
+        <Pressable 
+          style={styles.signOutBtn}
+          onPress={() => {
+            Alert.alert(
+              t('auth.logout') || 'Log Out',
+              'Are you sure you want to log out of Obhoy?',
+              [
+                { text: t('common.cancel') || 'Cancel', style: 'cancel' },
+                { text: t('auth.logout') || 'Log Out', style: 'destructive', onPress: signOut },
+              ]
+            );
+          }}
+        >
+          <Feather name="log-out" size={18} color={colors.danger} style={{ marginRight: 8 }} />
+          <Text style={[styles.signOutText, { color: colors.danger }]}>{t('auth.logout') || 'Log Out'}</Text>
+        </Pressable>
+      </ScrollView>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: colors.bg },
-  content: { padding: spacing.lg, paddingBottom: spacing.xxl + 20 },
+  container: { flex: 1 },
+  content: { paddingHorizontal: spacing.lg, paddingBottom: 120, paddingTop: spacing.xs },
+  
+  // Profile Hero Card
+  profileCard: { padding: spacing.lg, borderRadius: radii.card, marginBottom: spacing.sm },
+  profileRow: { flexDirection: 'row', alignItems: 'center' },
+  profileName: { fontSize: 18, fontWeight: '800' },
+  profilePhone: { fontSize: 13, marginTop: 2, fontWeight: '500' },
+  activePill: { paddingHorizontal: 10, paddingVertical: 4, borderRadius: radii.pill },
+  activePillText: { fontSize: 11, fontWeight: '800' },
+
   sectionHeading: {
     ...typography.sectionHeading,
-    fontSize: 13,
-    color: colors.textSecondary,
+    fontSize: 11.5,
     marginBottom: spacing.xs,
     marginTop: spacing.md,
-    letterSpacing: 0.5,
+    letterSpacing: 0.8,
   },
   card: {
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.xs,
     marginBottom: spacing.xs,
+    borderRadius: radii.card,
   },
   rowIcon: { marginRight: spacing.sm },
-  divider: { height: 1, backgroundColor: colors.border, marginVertical: spacing.xs },
+  divider: { height: 1, marginVertical: spacing.xs },
   chipRow: { flexDirection: 'row', gap: 8, paddingVertical: spacing.xs, marginBottom: spacing.xs },
   chip: {
     paddingVertical: 6,
     paddingHorizontal: 14,
     borderRadius: radii.pill,
-    backgroundColor: colors.primaryLight,
     minHeight: 32,
     justifyContent: 'center',
     alignItems: 'center',
   },
-  chipActive: { backgroundColor: colors.primary },
-  chipText: { color: colors.primary, fontWeight: '700', fontSize: 13 },
-  chipTextActive: { color: '#FFFFFF' },
+  chipText: { fontWeight: '700', fontSize: 13 },
+  signOutBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: spacing.lg,
+    marginTop: spacing.sm,
+    marginBottom: spacing.xl,
+  },
+  signOutText: { fontSize: 15, fontWeight: '700' },
 });

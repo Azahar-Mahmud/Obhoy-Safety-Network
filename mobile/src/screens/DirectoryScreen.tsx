@@ -1,9 +1,12 @@
 import React from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, Linking, ScrollView } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet, Linking, FlatList, StatusBar, Platform } from 'react-native';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Feather } from '@expo/vector-icons';
 import { RootStackParamList } from '../navigation/AppNavigator';
 
+import { Card, ListRow, ScreenHeader } from '../components';
+import { useTheme } from '../context/ThemeContext';
 import { colors, spacing, typography, radii } from '../theme/theme';
 import { t, useLanguage } from '../i18n';
 
@@ -11,97 +14,181 @@ type Props = NativeStackScreenProps<RootStackParamList, 'Directory'>;
 
 export default function DirectoryScreen({ navigation }: Props) {
   useLanguage();
+  const insets = useSafeAreaInsets();
+  const { colors, isDark } = useTheme();
+
+  const topPadding = Platform.OS === 'android' 
+    ? Math.max(insets.top, (StatusBar.currentHeight || 28)) + 6
+    : Math.max(insets.top, 20);
+
+  const helplines = [
+    { key: 'dir.women_child', label: 'Women & Child Helpline', sub: 'National 24/7 toll-free assistance', number: '109', icon: 'shield', color: colors.caution, tint: colors.cautionTint },
+    { key: 'dir.child', label: 'Child Helpline', sub: 'Child protection & rescue service', number: '1098', icon: 'heart', color: colors.primary, tint: colors.primaryLight },
+    { key: 'dir.disaster', label: 'Disaster Helpline', sub: 'Emergency flood, cyclone & crisis info', number: '1090', icon: 'alert-triangle', color: colors.safe, tint: colors.safeTint },
+  ];
+
   const call = (number: string) => Linking.openURL(`tel:${number}`);
 
   return (
-    <ScrollView style={styles.container} contentContainerStyle={styles.content}>
-      <Text style={typography.screenTitle}>Help & Guides</Text>
+    <View style={[styles.container, { backgroundColor: colors.bg, paddingTop: topPadding }]}>
+      <StatusBar 
+        barStyle={isDark ? 'light-content' : 'dark-content'} 
+        backgroundColor={colors.bg} 
+        translucent 
+      />
 
-      {/* Practice Mode Link */}
-      <TouchableOpacity 
-        style={styles.practiceCard} 
-        onPress={() => navigation.navigate('PracticeMode')}
-      >
-        <View style={styles.row}>
-          <Feather name="play-circle" size={24} color={colors.primary} style={{ marginRight: 14 }} />
-          <View style={{ flex: 1 }}>
-            <Text style={{ fontWeight: '800', fontSize: 15, color: colors.primaryDark }}>Practice Mode & Tutorials</Text>
-            <Text style={{ fontSize: 13, color: colors.primary, marginTop: 2 }}>Learn how to use SOS safely</Text>
+      <FlatList
+        data={helplines}
+        keyExtractor={(item) => item.number}
+        contentContainerStyle={styles.listContent}
+        showsVerticalScrollIndicator={false}
+        ListHeaderComponent={
+          <View style={styles.headerWrap}>
+            <ScreenHeader
+              title={t('dir.title') || 'Help & Emergency'}
+              subtitle="Direct emergency hotlines, practice simulations & guides."
+            />
+
+            {/* Hero 999 National Emergency Card */}
+            <TouchableOpacity 
+              style={styles.hero999Card} 
+              onPress={() => call('999')}
+              activeOpacity={0.9}
+            >
+              <View style={styles.hero999Content}>
+                <View style={styles.hero999IconCircle}>
+                  <Feather name="phone-call" size={26} color="#DC2626" />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.hero999Badge}>NATIONAL EMERGENCY</Text>
+                  <Text style={styles.hero999Title}>Police • Fire • Ambulance</Text>
+                  <Text style={styles.hero999Sub}>Tap to call immediately</Text>
+                </View>
+                <View style={styles.hero999NumBox}>
+                  <Text style={styles.hero999Number}>999</Text>
+                </View>
+              </View>
+            </TouchableOpacity>
+
+            <Text style={[styles.sectionHeading, { color: colors.textSecondary }]}>
+              NATIONAL HELPLINES
+            </Text>
           </View>
-          <Feather name="chevron-right" size={20} color={colors.primary} />
-        </View>
-      </TouchableOpacity>
-
-      {/* Medical Card Link */}
-      <TouchableOpacity 
-        style={styles.medicalCard} 
-        onPress={() => navigation.navigate('MedicalCardEdit')}
-      >
-        <View style={styles.row}>
-          <Feather name="heart" size={26} color={colors.danger} style={{ marginRight: 14 }} />
-          <View style={{ flex: 1 }}>
-            <Text style={styles.cardTitle}>Medical Card</Text>
-            <Text style={styles.hint}>O+ · No known allergies</Text>
+        }
+        renderItem={({ item }) => (
+          <TouchableOpacity 
+            style={[styles.helplineCard, { backgroundColor: colors.cardBg, borderColor: colors.border }]} 
+            onPress={() => call(item.number)}
+            activeOpacity={0.7}
+          >
+            <View style={[styles.iconBadge, { backgroundColor: item.tint }]}>
+              <Feather name={item.icon as any} size={20} color={item.color} />
+            </View>
+            <View style={{ flex: 1, marginLeft: 12 }}>
+              <Text style={[styles.helplineLabel, { color: colors.textPrimary }]}>{item.label}</Text>
+              <Text style={[styles.helplineSub, { color: colors.textSecondary }]}>{item.sub}</Text>
+            </View>
+            <View style={styles.callPill}>
+              <Text style={[styles.helplineNumber, { color: colors.primary }]}>{item.number}</Text>
+            </View>
+          </TouchableOpacity>
+        )}
+        ListFooterComponent={
+          <View style={styles.footer}>
+            <Text style={[styles.sectionHeading, { color: colors.textSecondary }]}>
+              TRAINING & GUIDES
+            </Text>
+            <Card style={styles.guideCard}>
+              <ListRow
+                title="Practice Mode"
+                subtitle="Safely simulate SOS and check-ins without alerting anyone"
+                left={<Feather name="play-circle" size={22} color={colors.primary} style={styles.rowIcon} />}
+                right={<Feather name="chevron-right" size={18} color={colors.textSecondary} />}
+                onPress={() => navigation.navigate('PracticeMode')}
+              />
+              <View style={[styles.divider, { backgroundColor: colors.border }]} />
+              <ListRow
+                title="How Obhoy Works"
+                subtitle="Comprehensive 8-pillar guides & video walkthroughs"
+                left={<Feather name="book-open" size={22} color={colors.primary} style={styles.rowIcon} />}
+                right={<Feather name="chevron-right" size={18} color={colors.textSecondary} />}
+                onPress={() => navigation.navigate('AppGuide')}
+              />
+            </Card>
           </View>
-          <Feather name="chevron-right" size={20} color={colors.text2} />
-        </View>
-      </TouchableOpacity>
-
-      <Text style={typography.sectionHeading}>Emergency Numbers</Text>
-
-      <TouchableOpacity style={styles.callCardHero} onPress={() => call('999')}>
-        <View style={styles.ciconHero}><Feather name="phone-call" size={22} color="#fff" /></View>
-        <View style={{ flex: 1 }}>
-          <Text style={styles.callTitleHero}>National Emergency</Text>
-          <Text style={styles.callHintHero}>Police · Fire · Ambulance</Text>
-        </View>
-        <Text style={styles.emNum}>999</Text>
-      </TouchableOpacity>
-
-      <TouchableOpacity style={styles.callCard} onPress={() => call('109')}>
-        <View style={[styles.cicon, { backgroundColor: colors.cautionTint }]}><Feather name="users" size={20} color={colors.caution} /></View>
-        <View style={{ flex: 1 }}>
-          <Text style={styles.callTitle}>Women & Child Helpline</Text>
-          <Text style={styles.hint}>109 · National, free</Text>
-        </View>
-      </TouchableOpacity>
-
-      <TouchableOpacity style={styles.callCard} onPress={() => call('1098')}>
-        <View style={[styles.cicon, { backgroundColor: colors.primaryLight }]}><Feather name="smile" size={20} color={colors.primary} /></View>
-        <View style={{ flex: 1 }}>
-          <Text style={styles.callTitle}>Child Helpline</Text>
-          <Text style={styles.hint}>1098 · National, free</Text>
-        </View>
-      </TouchableOpacity>
-
-      <TouchableOpacity style={styles.callCard} onPress={() => call('1090')}>
-        <View style={[styles.cicon, { backgroundColor: colors.dangerTint }]}><Feather name="cloud-rain" size={20} color={colors.danger} /></View>
-        <View style={{ flex: 1 }}>
-          <Text style={styles.callTitle}>Disaster Helpline</Text>
-          <Text style={styles.hint}>1090 · National, free</Text>
-        </View>
-      </TouchableOpacity>
-    </ScrollView>
+        }
+      />
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: colors.bg },
-  content: { padding: spacing.xl, paddingBottom: 100 },
-  row: { flexDirection: 'row', alignItems: 'center' },
-  cardTitle: { fontWeight: '800', fontSize: 14.5, color: colors.text },
-  hint: { fontSize: 13, color: colors.text2, marginTop: 2 },
+  container: { flex: 1 },
+  listContent: { paddingHorizontal: spacing.lg, paddingBottom: 110, paddingTop: spacing.xs },
+  headerWrap: { marginBottom: spacing.xs },
+  
+  // Hero 999 Card
+  hero999Card: {
+    backgroundColor: '#FEE2E2',
+    borderRadius: radii.card,
+    padding: spacing.lg,
+    marginVertical: spacing.md,
+    borderWidth: 1.5,
+    borderColor: '#FECACA',
+    elevation: 2,
+    shadowColor: '#DC2626',
+    shadowOpacity: 0.15,
+    shadowRadius: 8,
+    shadowOffset: { width: 0, height: 4 },
+  },
+  hero999Content: { flexDirection: 'row', alignItems: 'center' },
+  hero999IconCircle: {
+    width: 52,
+    height: 52,
+    borderRadius: 26,
+    backgroundColor: '#FFFFFF',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 14,
+    elevation: 2,
+  },
+  hero999Badge: { fontSize: 11, fontWeight: '900', color: '#B91C1C', letterSpacing: 0.8 },
+  hero999Title: { fontSize: 15, fontWeight: '800', color: '#111827', marginTop: 1 },
+  hero999Sub: { fontSize: 12, color: '#6B7280', marginTop: 2 },
+  hero999NumBox: { paddingHorizontal: 12, paddingVertical: 6, backgroundColor: '#DC2626', borderRadius: radii.pill },
+  hero999Number: { fontSize: 20, fontWeight: '900', color: '#FFFFFF' },
 
-  practiceCard: { backgroundColor: colors.primaryTint, borderWidth: 1.5, borderColor: colors.primary, borderRadius: radii.card, padding: 16, marginTop: 8, marginBottom: 12 },
-  medicalCard: { backgroundColor: colors.cardBg, borderWidth: 1, borderColor: colors.border, borderRadius: radii.card, padding: 16, marginBottom: 20 },
+  // Helpline Cards
+  sectionHeading: { ...typography.sectionHeading, fontSize: 12.5, marginBottom: spacing.xs, marginTop: spacing.md, letterSpacing: 0.8 },
+  helplineCard: {
+    borderRadius: radii.card,
+    padding: 16,
+    marginBottom: 10,
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderWidth: 1,
+    elevation: 1,
+  },
+  iconBadge: {
+    width: 44,
+    height: 44,
+    borderRadius: 14,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  helplineLabel: { fontSize: 15, fontWeight: '800' },
+  helplineSub: { fontSize: 12, marginTop: 2 },
+  callPill: {
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    backgroundColor: colors.primaryLight,
+    borderRadius: radii.pill,
+  },
+  helplineNumber: { fontSize: 16, fontWeight: '900' },
 
-  callCardHero: { flexDirection: 'row', alignItems: 'center', backgroundColor: colors.primary, padding: 16, borderRadius: radii.card, marginBottom: 12 },
-  ciconHero: { width: 46, height: 46, borderRadius: 23, backgroundColor: 'rgba(255,255,255,0.2)', alignItems: 'center', justifyContent: 'center', marginRight: 14 },
-  callTitleHero: { fontWeight: '800', fontSize: 14.5, color: '#fff' },
-  callHintHero: { fontSize: 12.5, color: '#fff', opacity: 0.85, marginTop: 2 },
-  emNum: { fontFamily: 'monospace', fontSize: 26, fontWeight: '800', color: '#fff' },
-
-  callCard: { flexDirection: 'row', alignItems: 'center', backgroundColor: colors.cardBg, borderWidth: 1.5, borderColor: colors.border, padding: 16, borderRadius: radii.card, marginBottom: 12 },
-  cicon: { width: 46, height: 46, borderRadius: 23, alignItems: 'center', justifyContent: 'center', marginRight: 14 },
-  callTitle: { fontWeight: '700', fontSize: 14, color: colors.text },
+  // Guide Section
+  footer: { marginTop: spacing.xs },
+  guideCard: { paddingHorizontal: spacing.md, paddingVertical: spacing.xs, borderRadius: radii.card },
+  divider: { height: 1, marginVertical: spacing.xs },
+  rowIcon: { marginRight: spacing.sm },
 });

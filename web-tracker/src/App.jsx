@@ -1,9 +1,26 @@
 import { useState, useEffect } from 'react';
 import { MapContainer, TileLayer, Marker, Popup, Circle, Polyline } from 'react-leaflet';
+import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 
 const API_BASE_URL = 'https://obhoy-safety-network.onrender.com';
-const ORS_API_KEY = process.env.REACT_APP_ORS_API_KEY || ''; // Optional ORS key
+const ORS_API_KEY = process.env.REACT_APP_ORS_API_KEY || ''; 
+
+// --- Custom Beautiful Markers to fix the broken image bug ---
+const destIcon = new L.DivIcon({
+  html: '<div style="font-size: 24px; text-shadow: 0 2px 4px rgba(0,0,0,0.3);">🏁</div>',
+  className: '',
+  iconSize: [24, 24],
+  iconAnchor: [12, 24]
+});
+
+const userIcon = new L.DivIcon({
+  html: '<div style="width:16px;height:16px;background:#3B82F6;border:3px solid #fff;border-radius:50%;box-shadow:0 2px 6px rgba(0,0,0,0.4);"></div>',
+  className: '',
+  iconSize: [22, 22],
+  iconAnchor: [11, 11]
+});
+// ------------------------------------------------------------
 
 const STRINGS = {
   en: {
@@ -21,7 +38,7 @@ const STRINGS = {
     requested_help: '🔴 Requested help (Escalated via SMS)',
     ask_safe: "Ask if they're safe",
     asked: 'Request sent — waiting for reply',
-    last_known: 'Last known location',
+    last_known: 'Current Live Location',
     destination: 'Destination',
     no_location: 'No location available yet.',
     loading: 'Loading...',
@@ -42,7 +59,7 @@ const STRINGS = {
     requested_help: '🔴 সাহায্য চেয়েছে (এসএমএসে জানানো হয়েছে)',
     ask_safe: 'নিরাপদ আছে কিনা জিজ্ঞেস করুন',
     asked: 'জিজ্ঞেস করা হয়েছে — উত্তরের অপেক্ষায়',
-    last_known: 'সর্বশেষ প্রাপ্ত অবস্থান',
+    last_known: 'বর্তমান লাইভ অবস্থান',
     destination: 'গন্তব্য',
     no_location: 'এখনো কোনো অবস্থান পাওয়া যায়নি।',
     loading: 'লোড হচ্ছে...',
@@ -89,7 +106,6 @@ export default function App() {
     return () => clearInterval(interval);
   }, [token]);
 
-  // --- STEP 2: Calculate Route Polyline (ORS with straight-line fallback) ---
   useEffect(() => {
     if (!data || typeof data.destinationLat !== 'number' || typeof data.destinationLng !== 'number') {
       return;
@@ -120,7 +136,6 @@ export default function App() {
           }
         } catch {}
       }
-      // Straight-line fallback
       setRouteLine([[startLat, startLng], [destLat, destLng]]);
     }
 
@@ -166,7 +181,7 @@ export default function App() {
       } else if (geofence) {
         bannerText = tr(lang, 'inside', { time: timeStr });
       } else {
-        bannerText = tr(lang, 'journey', { destination: destinationLabel || (lang === 'bn' ? 'গন্তব্য' : 'destination'), time: timeStr });
+        bannerText = tr(lang, 'journey', { destination: destinationLabel || tr(lang, 'destination'), time: timeStr });
       }
     } else if (status === 'arrived') {
       bannerText = tr(lang, 'arrived');
@@ -195,19 +210,14 @@ export default function App() {
         <MapContainer center={[location.lat, location.lng]} zoom={15} style={styles.map}>
           <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" attribution="&copy; OpenStreetMap contributors" />
           
-          {/* Safe Zone Boundary */}
           {geofence && (
             <Circle 
               center={[geofence.center.lat, geofence.center.lng]} 
               radius={geofence.radiusMeters} 
-              pathOptions={{
-                color: geofence.alerted ? '#DC2626' : '#6B21A8',
-                fillOpacity: 0.08
-              }}
+              pathOptions={{ color: geofence.alerted ? '#DC2626' : '#6B21A8', fillOpacity: 0.08 }}
             />
           )}
 
-          {/* Planned Walking Route Polyline */}
           {routeLine.length > 0 && (
             <Polyline
               positions={routeLine}
@@ -215,20 +225,18 @@ export default function App() {
                 color: '#6B21A8',
                 weight: 4,
                 opacity: 0.7,
-                dashArray: ORS_API_KEY ? undefined : '6, 8', // dashed if straight-line fallback
+                dashArray: ORS_API_KEY ? undefined : '6, 8',
               }}
             />
           )}
 
-          {/* Destination Marker */}
           {typeof destinationLat === 'number' && typeof destinationLng === 'number' && (
-            <Marker position={[destinationLat, destinationLng]}>
-              <Popup>🏁 {destinationLabel || tr(lang, 'destination')}</Popup>
+            <Marker position={[destinationLat, destinationLng]} icon={destIcon}>
+              <Popup>{destinationLabel || tr(lang, 'destination')}</Popup>
             </Marker>
           )}
 
-          {/* Current Live Location Marker */}
-          <Marker position={[location.lat, location.lng]}>
+          <Marker position={[location.lat, location.lng]} icon={userIcon}>
             <Popup>{tr(lang, 'last_known')}</Popup>
           </Marker>
         </MapContainer>

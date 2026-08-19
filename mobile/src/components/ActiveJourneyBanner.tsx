@@ -1,6 +1,7 @@
 import React from 'react';
-import { Pressable, Text, View, StyleSheet } from 'react-native';
-import { colors } from '../theme/theme';
+import { View, Text, Pressable, StyleSheet } from 'react-native';
+import { Feather } from '@expo/vector-icons';
+import { colors, radii, spacing, typography } from '../theme/theme';
 
 interface ActiveJourneyBannerProps {
   activeJourney: any;
@@ -10,35 +11,55 @@ interface ActiveJourneyBannerProps {
 export function ActiveJourneyBanner({ activeJourney, onPress }: ActiveJourneyBannerProps) {
   if (!activeJourney) return null;
 
+  const destination = activeJourney.destinationLabel || 'destination';
+
   return (
-    <Pressable style={styles.banner} onPress={onPress}>
-      <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+    <Pressable 
+      onPress={onPress} 
+      style={styles.container}
+    >
+      <View style={styles.row}>
         <View style={styles.pulseDot} />
-        <Text style={styles.bannerText}>Journey Active</Text>
+        <Text style={styles.text} numberOfLines={1}>
+          Active Journey to {destination}
+        </Text>
       </View>
-      <Text style={styles.bannerTime}>00:00</Text> {/* Wire this to real timer context later */}
+      <Feather name="chevron-right" size={18} color={colors.primary} />
     </Pressable>
   );
 }
 
 const styles = StyleSheet.create({
-  banner: {
-    backgroundColor: colors.primary,
+  container: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingVertical: 12,
-    paddingHorizontal: 18,
-    borderRadius: 12,
-    marginBottom: 16,
-    shadowColor: colors.primary,
-    shadowOpacity: 0.25,
-    shadowRadius: 12,
-    shadowOffset: { width: 0, height: 4 },
+    backgroundColor: colors.primaryLight,
+    paddingVertical: spacing.md,
+    paddingHorizontal: spacing.lg,
+    borderRadius: radii.md,
+    marginBottom: spacing.md,
+    borderWidth: 1,
+    borderColor: colors.border,
   },
-  bannerText: { color: '#fff', fontSize: 13.5, fontWeight: '700' },
-  bannerTime: { color: '#fff', fontSize: 13.5, fontWeight: '600', opacity: 0.9 },
+  row: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+    marginRight: spacing.sm,
+  },
   pulseDot: {
-    width: 8, height: 8, borderRadius: 4, backgroundColor: '#fff', marginRight: 8,
-  }
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+    backgroundColor: colors.primary,
+    marginRight: spacing.sm,
+  },
+  text: {
+    ...typography.body,
+    color: colors.primaryDark,
+    fontWeight: '700',
+    fontSize: 14,
+    flex: 1,
+  },
 });

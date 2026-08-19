@@ -1,93 +1,108 @@
-import React, { useRef, useState } from 'react';
-import { Pressable, Text, StyleSheet, Animated } from 'react-native';
+import React from 'react';
+import { Pressable, Text, StyleSheet, View } from 'react-native';
+import { Feather } from '@expo/vector-icons';
 import { colors } from '../theme/theme';
 import { useSimpleMode } from '../context/SimpleModeContext';
 
 interface SosButtonProps {
   onTrigger: () => void;
+  onPressHelp?: () => void;
   size?: number;
 }
 
-export function SosButton({ onTrigger, size }: SosButtonProps) {
+export function SosButton({ onTrigger, onPressHelp, size }: SosButtonProps) {
   const { simpleMode } = useSimpleMode();
-  const resolvedSize = size ?? (simpleMode ? 196 : 156);
-  
-  const [isHolding, setIsHolding] = useState(false);
-  const fillAnim = useRef(new Animated.Value(0)).current;
-
-  const handlePressIn = () => {
-    setIsHolding(true);
-    Animated.timing(fillAnim, {
-      toValue: 1,
-      duration: 1500, // 1.5 seconds to fill
-      useNativeDriver: false,
-    }).start(({ finished }) => {
-      if (finished) {
-        onTrigger();
-        resetAnim();
-      }
-    });
-  };
-
-  const handlePressOut = () => {
-    if (isHolding) resetAnim();
-  };
-
-  const resetAnim = () => {
-    setIsHolding(false);
-    Animated.timing(fillAnim, {
-      toValue: 0,
-      duration: 200,
-      useNativeDriver: false,
-    }).start();
-  };
-
-  const fillHeight = fillAnim.interpolate({
-    inputRange: [0, 1],
-    outputRange: ['0%', '100%']
-  });
+  const baseSize = size ?? (simpleMode ? 172 : 140);
 
   return (
-    <Pressable
-      onPressIn={handlePressIn}
-      onPressOut={handlePressOut}
-      style={({ pressed }) => [
-        styles.button,
-        { width: resolvedSize, height: resolvedSize, borderRadius: resolvedSize / 2 },
-        pressed && styles.pressed,
-      ]}
-    >
-      {/* Animated Dark Fill representing the hold time */}
-      <Animated.View style={[styles.holdFill, { height: fillHeight }]} />
+    <View style={styles.outerContainer}>
+      {/* Outer Ripple Aura 1 */}
+      <View
+        style={[
+          styles.glowRing1,
+          { width: baseSize + 60, height: baseSize + 60, borderRadius: (baseSize + 60) / 2 },
+        ]}
+      />
+      
+      {/* Middle Ripple Aura 2 */}
+      <View
+        style={[
+          styles.glowRing2,
+          { width: baseSize + 30, height: baseSize + 30, borderRadius: (baseSize + 30) / 2 },
+        ]}
+      />
 
-      <Text style={[styles.label, simpleMode && styles.labelSimple]}>SOS</Text>
-      <Text style={[styles.sublabel, simpleMode && styles.sublabelSimple]}>Press & Hold</Text>
-    </Pressable>
+      {/* Main Hero Shutter Button */}
+      <Pressable
+        onPress={onPressHelp}
+        onLongPress={onTrigger}
+        delayLongPress={900}
+        style={({ pressed }) => [
+          styles.button,
+          { width: baseSize, height: baseSize, borderRadius: baseSize / 2 },
+          pressed && styles.pressed,
+        ]}
+      >
+        <Feather name="wifi" size={18} color="rgba(255,255,255,0.85)" style={styles.waveIcon} />
+        <Text style={[styles.label, simpleMode && styles.labelSimple]}>SOS</Text>
+        <Text style={[styles.sublabel, simpleMode && styles.sublabelSimple]}>HOLD 1S</Text>
+      </Pressable>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  button: {
-    backgroundColor: colors.danger,
+  outerContainer: {
     alignItems: 'center',
     justifyContent: 'center',
-    shadowColor: colors.danger,
-    shadowOpacity: 0.42,
-    shadowRadius: 26,
-    shadowOffset: { width: 0, height: 12 },
-    elevation: 8,
-    overflow: 'hidden',
+    marginVertical: 6,
   },
-  holdFill: {
+  glowRing1: {
     position: 'absolute',
-    bottom: 0, left: 0, right: 0,
-    backgroundColor: 'rgba(0,0,0,0.2)',
+    backgroundColor: 'rgba(239, 68, 68, 0.08)',
+  },
+  glowRing2: {
+    position: 'absolute',
+    backgroundColor: 'rgba(239, 68, 68, 0.16)',
+  },
+  button: {
+    backgroundColor: '#DC2626',
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: '#DC2626',
+    shadowOpacity: 0.45,
+    shadowRadius: 22,
+    shadowOffset: { width: 0, height: 8 },
+    elevation: 12,
+    borderWidth: 3,
+    borderColor: 'rgba(255, 255, 255, 0.3)',
   },
   pressed: {
-    transform: [{ scale: 0.98 }],
+    transform: [{ scale: 0.95 }],
+    opacity: 0.92,
   },
-  label: { color: '#FFFFFF', fontSize: 26, fontWeight: '900', letterSpacing: 0.5, zIndex: 2 },
-  labelSimple: { fontSize: 36 },
-  sublabel: { color: '#FFFFFF', fontSize: 11.5, fontWeight: '700', opacity: 0.92, marginTop: 2, zIndex: 2 },
-  sublabelSimple: { fontSize: 14 },
+  waveIcon: {
+    transform: [{ rotate: '45deg' }],
+    marginBottom: -2,
+  },
+  label: {
+    color: '#FFFFFF',
+    fontSize: 27,
+    fontWeight: '900',
+    letterSpacing: 1,
+  },
+  labelSimple: {
+    fontSize: 34,
+  },
+  sublabel: {
+    color: '#FFFFFF',
+    fontSize: 10,
+    fontWeight: '800',
+    letterSpacing: 1.2,
+    opacity: 0.88,
+    marginTop: 2,
+  },
+  sublabelSimple: {
+    fontSize: 12,
+  },
 });

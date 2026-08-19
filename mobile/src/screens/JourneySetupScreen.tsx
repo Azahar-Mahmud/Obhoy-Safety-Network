@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, TextInput, StyleSheet, Switch, ScrollView, Pressable } from 'react-native';
+import { View, Text, TextInput, StyleSheet, Switch, ScrollView } from 'react-native';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import * as Location from 'expo-location';
 import DateTimePicker from '@react-native-community/datetimepicker';
@@ -7,13 +7,14 @@ import { Feather } from '@expo/vector-icons';
 
 import { RootStackParamList } from '../navigation/AppNavigator';
 import { apiRequest } from '../api/client';
-import { ScreenHeader, Card, ListRow, Button, Toggle } from '../components';
+import { ScreenHeader, Card, ListRow, Button } from '../components';
 import { colors, spacing, typography, radii } from '../theme/theme';
 import { t, useLanguage } from '../i18n';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'JourneySetup'>;
 
-const INTERVALS = [15, 30, 45, 60];
+const INTERVALS = [1, 15, 30, 60];
+const RADIUS_OPTIONS = [200, 500, 1000, 2000];
 
 export default function JourneySetupScreen({ navigation, route }: Props) {
   useLanguage();
@@ -21,37 +22,59 @@ export default function JourneySetupScreen({ navigation, route }: Props) {
   const [fromPoint, setFromPoint] = useState<{ lat: number; lng: number; label: string } | null>(null);
   const [toPoint, setToPoint] = useState<{ lat: number; lng: number; label: string } | null>(null);
   const [destinationLabel, setDestinationLabel] = useState('');
+  const [contacts, setContacts] = useState<any[]>([]);
 
+  // Mode and Timer
   const [mode, setMode] = useState<'interval' | 'scheduled'>('interval');
   const [deadline, setDeadline] = useState(new Date(Date.now() + 60 * 60 * 1000));
   const [showPicker, setShowPicker] = useState(false);
   const [interval, setInterval_] = useState(30);
 
+  // Geofence
   const [geofenceEnabled, setGeofenceEnabled] = useState(false);
+  const [radius, setRadius] = useState(500);
   
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
+  // 1. Auto-detect origin GPS
   useEffect(() => {
     (async () => {
       const { status } = await Location.requestForegroundPermissionsAsync();
       if (status === 'granted') {
         const last = await Location.getLastKnownPositionAsync().catch(() => null);
-        if (last) setFromPoint({ lat: last.coords.latitude, lng: last.coords.longitude, label: 'Current Location' });
-        else {
+        if (last) {
+          setFromPoint({ lat: last.coords.latitude, lng: last.coords.longitude, label: 'Current Location' });
+        } else {
           const fresh = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
           setFromPoint({ lat: fresh.coords.latitude, lng: fresh.coords.longitude, label: 'Current Location' });
         }
       }
     })();
+
+    // 2. Fetch real trusted contacts
+    apiRequest('/contacts')
+      .then((data) => {
+        if (Array.isArray(data)) setContacts(data);
+      })
+      .catch(() => {});
   }, []);
 
+  // Handle returning from MapPointPickerScreen
   useEffect(() => {
     const params = route.params;
     if (params?.pickedLat != null && params?.pickedLng != null && params?.targetField) {
-      const point = { lat: params.pickedLat, lng: params.pickedLng, label: `${params.pickedLat.toFixed(4)}, ${params.pickedLng.toFixed(4)}` };
-      if (params.targetField === 'from') setFromPoint(point);
-      else if (params.targetField === 'to') setToPoint(point);
+      const point = {
+        lat: params.pickedLat,
+        lng: params.pickedLng,
+        label: `${params.pickedLat.toFixed(4)}, ${params.pickedLng.toFixed(4)}`,
+      };
+
+      if (params.targetField === 'from') {
+        setFromPoint(point);
+      } else if (params.targetField === 'to') {
+        setToPoint(point);
+      }
     }
   }, [route.params]);
 
@@ -67,142 +90,241 @@ export default function JourneySetupScreen({ navigation, route }: Props) {
 
   const handleStart = async () => {
     setError('');
-    if (!toPoint) { setError('Please select a destination point on the map.'); return; }
+    if (!toPoint) {
+      setError('Please tap the destination field to select a point on the map.');
+      return;
+    }
+
     setLoading(true);
     try {
       const { status } = await Location.requestForegroundPermissionsAsync();
       if (status !== 'granted') throw new Error('Location permission is required.');
       
-      let startLat = fromPoint?.lat; let startLng = fromPoint?.lng;
+      let startLat = fromPoint?.lat;
+      let startLng = fromPoint?.lng;
+
+      // Bulletproof GPS fetch with 3-second timeout to prevent infinite "Starting..." hang
       if (startLat == null || startLng == null) {
-        const fresh = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
-        startLat = fresh.coords.latitude; startLng = fresh.coords.longitude;
+        try {
+          const fresh = await Promise.race([
+            Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced }),
+            new Promise((_, reject) => setTimeout(() => reject(new Error('GPS_TIMEOUT')), 3000))
+          ]) as Location.LocationObject;
+          startLat = fresh.coords.latitude;
+          startLng = fresh.coords.longitude;
+        } catch {
+          const last = await Location.getLastKnownPositionAsync().catch(() => null);
+          startLat = last?.coords.latitude ?? 23.8103; // Fallback to Dhaka if completely failing
+          startLng = last?.coords.longitude ?? 90.4125;
+        }
       }
 
       const data = await apiRequest('/journey/start', {
         method: 'POST',
         body: JSON.stringify({
           destinationLabel: destinationLabel.trim() || toPoint.label,
-          destinationLat: toPoint.lat, destinationLng: toPoint.lng,
-          originLat: startLat, originLng: startLng,
-          mode, checkinIntervalMinutes: mode === 'interval' ? interval : undefined,
+          destinationLat: toPoint.lat,
+          destinationLng: toPoint.lng,
+          originLat: startLat,
+          originLng: startLng,
+          mode,
+          checkinIntervalMinutes: mode === 'interval' ? interval : undefined,
           scheduledDeadline: mode === 'scheduled' ? deadline.toISOString() : undefined,
-          lat: startLat, lng: startLng, accuracy: 10,
+          lat: startLat,
+          lng: startLng,
+          accuracy: 10,
           geofenceEnabled: mode === 'interval' ? geofenceEnabled : false,
-          geofenceRadiusMeters: mode === 'interval' && geofenceEnabled ? 500 : undefined,
+          geofenceRadiusMeters: mode === 'interval' && geofenceEnabled ? radius : undefined,
         }),
       });
 
       navigation.replace('ActiveJourney', {
-        journeyId: data.journeyId, checkinIntervalMinutes: interval, mode,
+        journeyId: data.journeyId,
+        checkinIntervalMinutes: interval,
+        mode,
         scheduledDeadline: mode === 'scheduled' ? deadline.toISOString() : undefined,
       });
-    } catch (err: any) { setError(err.message || 'Could not start journey.'); } 
-    finally { setLoading(false); }
+    } catch (err: any) {
+      setError(err.message || 'Could not start journey.');
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
-    <View style={styles.container}>
-      <View style={styles.subHeader}>
-        <Pressable style={styles.backBtn} onPress={() => navigation.goBack()}><Feather name="x" size={24} color={colors.text} /></Pressable>
-        <Text style={typography.screenTitle}>New Journey</Text>
+    <ScrollView style={styles.container} contentContainerStyle={styles.content}>
+      <ScreenHeader 
+        title="New Journey" 
+        subtitle="Set your route, check-in interval & safe zones." 
+      />
+
+      {/* 1. Mode Segmented Switcher */}
+      <View style={styles.modeRow}>
+        <Button
+          label="Recurring Check-in"
+          variant={mode === 'interval' ? 'primary' : 'outline'}
+          style={styles.modeBtn}
+          onPress={() => setMode('interval')}
+        />
+        <Button
+          label="One-Time Deadline"
+          variant={mode === 'scheduled' ? 'primary' : 'outline'}
+          style={styles.modeBtn}
+          onPress={() => setMode('scheduled')}
+        />
       </View>
 
-      <ScrollView contentContainerStyle={styles.content}>
-        {/* Segmented Control */}
-        <View style={styles.segCtrl}>
-          <Pressable style={[styles.segBtn, mode === 'interval' && styles.segBtnActive]} onPress={() => setMode('interval')}>
-            <Text style={[styles.segBtnText, mode === 'interval' && {color: colors.primary}]}>Recurring Check-in</Text>
-          </Pressable>
-          <Pressable style={[styles.segBtn, mode === 'scheduled' && styles.segBtnActive]} onPress={() => setMode('scheduled')}>
-            <Text style={[styles.segBtnText, mode === 'scheduled' && {color: colors.primary}]}>One-Time Deadline</Text>
-          </Pressable>
-        </View>
+      {/* 2. Route Points Card */}
+      <Card style={styles.card}>
+        <ListRow
+          title="Starting Point"
+          subtitle={fromPoint?.label || 'Locating GPS...'}
+          left={<Feather name="circle" size={18} color={colors.safe} style={styles.icon} />}
+          right={<Feather name="map-pin" size={18} color={colors.primary} />}
+          onPress={() => openMapPicker('from')}
+        />
+        <View style={styles.divider} />
+        <ListRow
+          title="Destination Point"
+          subtitle={toPoint ? toPoint.label : 'Tap map to select destination *'}
+          left={<Feather name="map-pin" size={18} color={colors.danger} style={styles.icon} />}
+          right={<Feather name="chevron-right" size={18} color={colors.primary} />}
+          onPress={() => openMapPicker('to')}
+        />
+      </Card>
 
-        <Text style={styles.fieldLabel}>Route</Text>
-        <View style={styles.inputGroup}>
-          <Feather name="circle" size={18} color={colors.text2} style={styles.iconLeft} />
-          <TextInput style={[styles.input, { color: colors.text2, fontWeight: '600' }]} value="Current Location (Auto)" editable={false} />
-        </View>
-        <Pressable style={styles.inputGroup} onPress={() => openMapPicker('to')}>
-          <Feather name="map-pin" size={18} color={colors.primary} style={[styles.iconLeft, { color: colors.primary }]} />
-          <TextInput style={[styles.input, { color: colors.primary, fontWeight: '700', backgroundColor: colors.primaryTint, borderColor: colors.primaryLight }]} value={toPoint ? 'Location Selected' : "Tap map to select destination"} editable={false} pointerEvents="none" />
-        </Pressable>
+      {/* Optional Label */}
+      <Text style={styles.inputLabel}>Destination Name (Optional)</Text>
+      <TextInput
+        style={styles.input}
+        placeholder="e.g. Home, Campus, Library"
+        value={destinationLabel}
+        onChangeText={setDestinationLabel}
+        placeholderTextColor={colors.textSecondary}
+      />
 
-        <TextInput style={styles.input} placeholder="Destination Name (Optional, e.g. Home)" placeholderTextColor={colors.text2} value={destinationLabel} onChangeText={setDestinationLabel} />
+      {/* 3. Notify Contacts Summary */}
+      <Text style={styles.inputLabel}>Alerts will be sent to ({contacts.length} contacts)</Text>
+      <Card style={styles.card}>
+        <ListRow
+          title={contacts.length === 0 ? 'No contacts set' : contacts.map(c => c.name).join(', ')}
+          subtitle="All trusted contacts receive start SMS & missed check-in alerts"
+          left={<Feather name="users" size={18} color={colors.primary} style={styles.icon} />}
+          right={<Feather name="chevron-right" size={18} color={colors.textSecondary} />}
+          onPress={() => navigation.navigate('ContactsList')}
+        />
+      </Card>
 
-        <Text style={styles.fieldLabel}>Notify</Text>
-        <View style={styles.chipRow}>
-          <View style={[styles.chip, styles.chipSelected]}><Text style={styles.chipTextSelected}>Ammu</Text></View>
-          <View style={[styles.chip, styles.chipSelected]}><Text style={styles.chipTextSelected}>Rafiq Bhai</Text></View>
-          <View style={styles.chip}><Text style={styles.chipText}>+ Add</Text></View>
-        </View>
+      {/* 4. Mode-Specific Configurations */}
+      {mode === 'scheduled' ? (
+        <Card style={styles.card}>
+          <Text style={styles.cardHeader}>Safety Confirmation Deadline</Text>
+          <Button
+            label={`Confirm by ${deadline.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`}
+            variant="outline"
+            onPress={() => setShowPicker(true)}
+            style={{ marginVertical: spacing.xs }}
+          />
+          <Text style={styles.hint}>
+            Contacts are alerted automatically if you do not confirm before this time.
+          </Text>
+          {showPicker && (
+            <DateTimePicker
+              value={deadline}
+              mode="time"
+              display="default"
+              onChange={(event, selected) => {
+                setShowPicker(false);
+                if (selected) setDeadline(selected);
+              }}
+            />
+          )}
+        </Card>
+      ) : (
+        <Card style={styles.card}>
+          <Text style={styles.cardHeader}>Check in every</Text>
+          <View style={styles.intervalRow}>
+            {INTERVALS.map((mins) => (
+              <Button
+                key={mins}
+                label={`${mins}m`}
+                variant={interval === mins ? 'primary' : 'outline'}
+                style={styles.intervalBtn}
+                onPress={() => setInterval_(mins)}
+              />
+            ))}
+          </View>
 
-        {mode === 'scheduled' ? (
-          <>
-            <Text style={styles.fieldLabel}>Expected arrival deadline</Text>
-            <Button label={deadline.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} variant="outline" onPress={() => setShowPicker(true)} />
-            {showPicker && (
-              <DateTimePicker value={deadline} mode="time" display="default" onChange={(event, selected) => { setShowPicker(false); if (selected) setDeadline(selected); }} />
-            )}
-          </>
-        ) : (
-          <>
-            <Text style={styles.fieldLabel}>Check in every</Text>
-            <View style={styles.chipRow}>
-              {INTERVALS.map((mins) => (
-                <Pressable key={mins} style={[styles.chip, interval === mins && styles.chipSelected]} onPress={() => setInterval_(mins)}>
-                  <Text style={[styles.chipText, interval === mins && styles.chipTextSelected]}>{mins}m</Text>
-                </Pressable>
+          <View style={styles.divider} />
+
+          {/* Safe Zone Geofence */}
+          <View style={styles.switchRow}>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.switchLabel}>Safe Zone Alert</Text>
+              <Text style={styles.switchSub}>Alert contacts if leaving starting radius</Text>
+            </View>
+            <Switch
+              value={geofenceEnabled}
+              onValueChange={setGeofenceEnabled}
+              trackColor={{ false: '#D1D5DB', true: colors.primary }}
+            />
+          </View>
+
+          {geofenceEnabled && (
+            <View style={styles.intervalRow}>
+              {RADIUS_OPTIONS.map((meters) => (
+                <Button
+                  key={meters}
+                  label={meters >= 1000 ? `${meters / 1000}km` : `${meters}m`}
+                  variant={radius === meters ? 'primary' : 'outline'}
+                  style={styles.intervalBtn}
+                  onPress={() => setRadius(meters)}
+                />
               ))}
             </View>
+          )}
+        </Card>
+      )}
 
-            <View style={styles.rowBetween}>
-              <View>
-                <Text style={styles.switchLabel}>Safe Zone Alert</Text>
-                <Text style={styles.switchSub}>Alert contacts if leaving start radius</Text>
-              </View>
-              <Toggle value={geofenceEnabled} onChange={setGeofenceEnabled} />
-            </View>
-          </>
-        )}
+      {error ? <Text style={styles.error}>{error}</Text> : null}
 
-        {error ? <Text style={styles.error}>{error}</Text> : null}
-      </ScrollView>
-
-      <View style={styles.bottomBar}>
-        <Button label={loading ? 'Starting...' : 'Start Journey'} variant="primary" onPress={handleStart} disabled={loading} />
-      </View>
-    </View>
+      <Button
+        label={loading ? 'Starting Journey...' : 'Start Journey'}
+        variant="primary"
+        onPress={handleStart}
+        disabled={loading}
+        style={styles.startBtn}
+      />
+    </ScrollView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: colors.bg },
-  subHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: spacing.xl, marginTop: 40, marginBottom: 10 },
-  backBtn: { width: 40, height: 40, borderRadius: 20, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.cardBg },
-  content: { padding: spacing.xl, paddingBottom: 100 },
-  
-  segCtrl: { flexDirection: 'row', backgroundColor: colors.inputBg, borderRadius: radii.md, padding: 3, borderWidth: 1, borderColor: colors.border, marginBottom: 20 },
-  segBtn: { flex: 1, paddingVertical: 10, alignItems: 'center', borderRadius: radii.sm },
-  segBtnActive: { backgroundColor: colors.cardBg, shadowColor: '#000', shadowOpacity: 0.1, shadowRadius: 3, shadowOffset: { width: 0, height: 1 }, elevation: 2 },
-  segBtnText: { fontSize: 13.5, fontWeight: '700', color: colors.text2 },
-  
-  inputGroup: { position: 'relative', marginBottom: 8 },
-  iconLeft: { position: 'absolute', left: 14, top: 22, zIndex: 2 },
-  input: { backgroundColor: colors.inputBg, borderWidth: 1.5, borderColor: colors.border, borderRadius: radii.md, padding: 16, paddingLeft: 42, fontSize: 16, color: colors.text, marginBottom: 12 },
-  
-  fieldLabel: { fontSize: 13, fontWeight: '700', color: colors.text2, marginBottom: 8, marginTop: 12 },
-  chipRow: { flexDirection: 'row', gap: 8, marginBottom: 20, flexWrap: 'wrap' },
-  chip: { paddingVertical: 10, paddingHorizontal: 16, borderRadius: radii.pill, borderWidth: 1.5, borderColor: colors.border, backgroundColor: colors.cardBg },
-  chipSelected: { backgroundColor: colors.primary, borderColor: colors.primary },
-  chipText: { fontSize: 14, fontWeight: '700', color: colors.text2 },
-  chipTextSelected: { fontSize: 14, fontWeight: '700', color: '#fff' },
-
-  rowBetween: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginVertical: 20 },
-  switchLabel: { fontSize: 15, fontWeight: '700', color: colors.text },
-  switchSub: { fontSize: 13, color: colors.text2, marginTop: 2 },
-  
-  error: { color: colors.danger, textAlign: 'center', marginVertical: spacing.sm, fontWeight: '600' },
-  bottomBar: { position: 'absolute', bottom: 0, left: 0, right: 0, padding: 24, paddingBottom: 34, backgroundColor: colors.cardBg, borderTopLeftRadius: 24, borderTopRightRadius: 24, elevation: 16, shadowColor: '#000', shadowOpacity: 0.1, shadowRadius: 10, shadowOffset: { width: 0, height: -4 } }
+  container: { flex: 1, backgroundColor: '#FAFAFA' },
+  content: { padding: spacing.lg, paddingBottom: spacing.xxl + 20 },
+  card: { padding: spacing.md, marginBottom: spacing.md, borderRadius: radii.card },
+  icon: { marginRight: spacing.sm },
+  divider: { height: 1, backgroundColor: colors.border, marginVertical: spacing.xs },
+  inputLabel: { fontSize: 13, fontWeight: '700', color: colors.textSecondary, marginBottom: spacing.xs, marginTop: spacing.xs },
+  input: { 
+    backgroundColor: '#FFFFFF', 
+    borderWidth: 1.5, 
+    borderColor: colors.border, 
+    borderRadius: radii.md, 
+    padding: 14, 
+    fontSize: 16, 
+    color: colors.textPrimary,
+    marginBottom: spacing.md 
+  },
+  modeRow: { flexDirection: 'row', gap: spacing.sm, marginBottom: spacing.md },
+  modeBtn: { flex: 1, minHeight: 44 },
+  cardHeader: { ...typography.sectionHeading, fontSize: 14, color: colors.textPrimary, marginBottom: spacing.xs },
+  hint: { fontSize: 12, color: colors.textSecondary, marginTop: 4 },
+  intervalRow: { flexDirection: 'row', gap: spacing.xs, marginVertical: spacing.xs },
+  intervalBtn: { flex: 1, paddingVertical: 6, minHeight: 40 },
+  switchRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: spacing.sm },
+  switchLabel: { fontSize: 15, fontWeight: '700', color: colors.textPrimary },
+  switchSub: { fontSize: 12, color: colors.textSecondary, marginTop: 2 },
+  error: { color: colors.danger, textAlign: 'center', marginVertical: spacing.sm, fontWeight: '700' },
+  startBtn: { marginTop: spacing.sm },
 });

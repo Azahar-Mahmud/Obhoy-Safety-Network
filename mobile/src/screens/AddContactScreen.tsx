@@ -4,29 +4,23 @@ import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../navigation/AppNavigator';
 import { apiRequest } from '../api/client';
 import { t, useLanguage } from '../i18n';
-import { ScreenHeader, Card, ListRow, Avatar, Button } from '../components';
-import { colors, spacing, typography, radii } from '../theme/theme';
+import { ScreenHeader, Card, Button } from '../components';
+import { colors, spacing, radii } from '../theme/theme';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'AddContact'>;
-
-const SUGGESTED_CONTACTS = [
-  { name: 'Saima Akhter', phone: '01711000000', relationship: 'Sister' },
-  { name: 'Karim Uncle', phone: '01819000000', relationship: 'Family' },
-];
 
 export default function AddContactScreen({ navigation }: Props) {
   useLanguage();
   const [name, setName] = useState('');
   const [phone, setPhone] = useState('');
-  const [relationship] = useState('other');
+  const [relationship, setRelationship] = useState('other');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
-  const handleAdd = async (overrideName?: string, overridePhone?: string, overrideRel?: string) => {
+  const handleAdd = async () => {
     setError('');
-    const finalName = overrideName || name.trim();
-    const finalPhone = overridePhone || phone.trim();
-    const finalRel = overrideRel || relationship;
+    const finalName = name.trim();
+    const finalPhone = phone.trim();
 
     if (!finalName || !finalPhone) {
       setError('Please enter both name and phone number.');
@@ -37,7 +31,7 @@ export default function AddContactScreen({ navigation }: Props) {
     try {
       await apiRequest('/contacts', {
         method: 'POST',
-        body: JSON.stringify({ name: finalName, phone: finalPhone, relationship: finalRel }),
+        body: JSON.stringify({ name: finalName, phone: finalPhone, relationship }),
       });
       navigation.goBack();
     } catch (err: any) {
@@ -50,25 +44,25 @@ export default function AddContactScreen({ navigation }: Props) {
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.content}>
       <ScreenHeader 
-        title={t('contacts.add_title') || 'Add Contact'} 
-        subtitle="Enter contact details manually or pick from quick suggestions." 
+        title={t('contacts.add_title') || 'Add Trusted Contact'} 
+        subtitle="Add a family member or friend who will receive your live GPS link and SMS during an emergency." 
       />
 
-      {/* Manual Entry Form */}
       <Card style={styles.formCard}>
-        <Text style={styles.inputLabel}>{t('contacts.name') || 'Full Name'}</Text>
+        <Text style={styles.inputLabel}>{t('contacts.name') || 'Contact Name'}</Text>
         <TextInput
           style={styles.input}
-          placeholder="e.g. Rafiq Ahmed"
+          placeholder="e.g. Mother, Partner, Friend"
           placeholderTextColor={colors.textSecondary}
           value={name}
           onChangeText={setName}
+          autoFocus
         />
 
         <Text style={styles.inputLabel}>{t('contacts.phone') || 'Phone Number'}</Text>
         <TextInput
           style={styles.input}
-          placeholder="e.g. 01XXXXXXXXX"
+          placeholder="e.g. 017XXXXXXXX"
           placeholderTextColor={colors.textSecondary}
           keyboardType="phone-pad"
           value={phone}
@@ -80,33 +74,10 @@ export default function AddContactScreen({ navigation }: Props) {
         <Button
           label={loading ? 'Saving...' : t('common.save') || 'Save Contact'}
           variant="primary"
-          onPress={() => handleAdd()}
+          onPress={handleAdd}
           disabled={loading || !name.trim() || !phone.trim()}
           style={styles.saveBtn}
         />
-      </Card>
-
-      {/* Suggested Contacts */}
-      <Text style={styles.sectionHeading}>Suggested Contacts</Text>
-      <Card style={styles.suggestedCard}>
-        {SUGGESTED_CONTACTS.map((item, index) => (
-          <React.Fragment key={item.phone}>
-            <ListRow
-              title={item.name}
-              subtitle={`${item.phone} · ${item.relationship}`}
-              left={<Avatar initial={item.name[0]} size={42} />}
-              right={
-                <Button
-                  label="Add"
-                  variant="outline"
-                  onPress={() => handleAdd(item.name, item.phone, item.relationship)}
-                  style={styles.quickAddBtn}
-                />
-              }
-            />
-            {index < SUGGESTED_CONTACTS.length - 1 && <View style={styles.divider} />}
-          </React.Fragment>
-        ))}
       </Card>
     </ScrollView>
   );
@@ -128,9 +99,5 @@ const styles = StyleSheet.create({
     marginBottom: spacing.md,
   },
   saveBtn: { marginTop: spacing.xs },
-  sectionHeading: { ...typography.sectionHeading, fontSize: 16, color: colors.textSecondary, marginBottom: spacing.sm },
-  suggestedCard: { paddingHorizontal: spacing.md, paddingVertical: spacing.xs },
-  divider: { height: 1, backgroundColor: colors.border, marginVertical: spacing.xs },
-  quickAddBtn: { paddingVertical: 6, paddingHorizontal: 16, minHeight: 36 },
   error: { color: colors.danger, marginBottom: spacing.md, textAlign: 'center', fontWeight: '600' },
 });
