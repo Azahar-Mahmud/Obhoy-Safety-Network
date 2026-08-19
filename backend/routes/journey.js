@@ -49,18 +49,26 @@ router.post('/start', async (req, res) => {
       geofenceCenter: geofenceEnabled && typeof lat === 'number' ? { lat, lng } : undefined,
     });
     
+    // --- UPDATED SMS SENDING BLOCK ---
     const trackUrl = `${process.env.WEB_TRACKER_URL}/${trackingToken}`;
     const contacts = await TrustedContact.find({ userId: req.userId });
     const user = await User.findById(req.userId);
-    const startMessage = `Obhoy: ${user.phone} started a journey${destinationLabel ? ' to ' + destinationLabel : ''}. Track: ${trackUrl}`;
     
-    for (const contact of contacts) {
-      try {
-        await sendSms(contact.phone, startMessage);
-      } catch (err) {
-        console.error('Journey-start SMS failed for', contact.phone, err.message);
+    console.log(`[JOURNEY] Starting journey for ${user.phone}. Found ${contacts.length} trusted contacts.`);
+
+    if (contacts.length > 0) {
+      const startMessage = `Obhoy: ${user.phone} started a journey${destinationLabel ? ' to ' + destinationLabel : ''}. Track: ${trackUrl}`;
+      
+      for (const contact of contacts) {
+        try {
+          await sendSms(contact.phone, startMessage);
+          console.log(`[JOURNEY] SMS sent to ${contact.phone}`);
+        } catch (err) {
+          console.error(`[JOURNEY] SMS failed for ${contact.phone}:`, err.message);
+        }
       }
     }
+    // ---------------------------------
 
     res.json({ journeyId: journey._id, trackingToken, trackUrl, checkinIntervalMinutes: journey.checkinIntervalMinutes });
   } catch (err) {
