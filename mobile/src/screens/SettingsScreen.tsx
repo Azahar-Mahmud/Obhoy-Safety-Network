@@ -1,36 +1,34 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, Switch, StyleSheet, Alert, TouchableOpacity, ScrollView } from 'react-native';
+import { View, Text, StyleSheet, Alert, ScrollView, Pressable } from 'react-native';
 import { useDiscreetMode } from '../context/DiscreetModeContext';
 import { useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../navigation/AppNavigator';
 import * as SecureStore from 'expo-secure-store';
 import { Feather } from '@expo/vector-icons';
-import { t, useLanguage } from '../i18n';
+import { t, useLanguage, getLanguage, setLanguage } from '../i18n';
+import { syncLanguageToBackend } from '../utils/languageSync';
 
-import LanguageToggle from '../components/LanguageToggle';
-import SilentModeToggle from '../components/SilentModeToggle';
-import BatteryAlertSettings from '../components/BatteryAlertSettings';
-import { Toggle, Card, ListRow } from '../components';
-import { colors, spacing } from '../theme/theme';
-import { isAutoAudioEnabled, getAutoAudioLengthSeconds } from '../utils/autoAudioCapture';
+import { Toggle } from '../components';
+import { colors, spacing, typography, radii } from '../theme/theme';
+import { isAutoAudioEnabled } from '../utils/autoAudioCapture';
 
 const FALL_DETECTION_KEY = 'obhoy_fall_detection_enabled';
 const FALL_SENSITIVITY_KEY = 'obhoy_fall_sensitivity';
 const AUTO_AUDIO_KEY = 'obhoy_auto_audio_enabled';
-const AUTO_AUDIO_LENGTH_KEY = 'obhoy_auto_audio_length_seconds';
 
 export default function SettingsScreen() {
-  useLanguage();
+  useLanguage(); // Hook to trigger re-renders
+  const currentLang = getLanguage();
+  
   const { discreetModeEnabled, enable, disable } = useDiscreetMode();
   const [busy, setBusy] = useState(false);
   const [fallEnabled, setFallEnabled] = useState(false);
   const [sensitivity, setSensitivity] = useState<'low' | 'medium' | 'high'>('medium');
-  
-  // Auto-audio state
   const [audioOn, setAudioOn] = useState(false);
-  const [audioLength, setAudioLength] = useState(60);
-
+  const [silentSosOn, setSilentSosOn] = useState(false);
+  const [batteryAlertOn, setBatteryAlertOn] = useState(false);
+  
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
 
   useEffect(() => {
@@ -39,8 +37,13 @@ export default function SettingsScreen() {
       if (v === 'low' || v === 'medium' || v === 'high') setSensitivity(v);
     });
     isAutoAudioEnabled().then(setAudioOn);
-    getAutoAudioLengthSeconds().then(setAudioLength);
   }, []);
+
+  const changeLanguage = async (selected: 'bn' | 'en') => {
+    if (selected === currentLang) return;
+    await setLanguage(selected);
+    syncLanguageToBackend();
+  };
 
   const handleDiscreetToggle = (value: boolean) => {
     if (value) {
@@ -53,7 +56,7 @@ export default function SettingsScreen() {
             text: t('common.confirm'),
             onPress: async () => {
               setBusy(true);
-              try { await enable(); } catch (e) { console.error(e); } finally { setBusy(false); }
+              try { await enable(); } catch (e) {} finally { setBusy(false); }
             },
           },
         ]
@@ -79,137 +82,199 @@ export default function SettingsScreen() {
     await SecureStore.setItemAsync(AUTO_AUDIO_KEY, String(value));
   };
 
-  const handleAudioLength = async (seconds: number) => {
-    setAudioLength(seconds);
-    await SecureStore.setItemAsync(AUTO_AUDIO_LENGTH_KEY, String(seconds));
-  };
-
   return (
-    <ScrollView style={styles.container}>
-      <LanguageToggle />
+    <ScrollView style={styles.container} contentContainerStyle={styles.content}>
+      <Text style={styles.screenTitle}>Me & Settings</Text>
 
-      <View style={styles.divider} />
-
-      {/* Discreet Mode */}
-      <View style={styles.row}>
-        <View style={{ flex: 1 }}>
-          <Text style={styles.label}>{t('settings.discreet')}</Text>
-          <Text style={styles.hint}>{t('settings.discreet_hint')}</Text>
-        </View>
-        <Switch value={discreetModeEnabled} onValueChange={handleDiscreetToggle} disabled={busy} />
-      </View>
-
-      <View style={styles.divider} />
-
-      {/* Silent SOS Mode */}
-      <SilentModeToggle />
-
-      <View style={styles.divider} />
-
-      {/* Auto-Record Audio during SOS */}
-      <View style={styles.row}>
-        <View style={{ flex: 1 }}>
-          <Text style={styles.label}>Auto-Record Audio on SOS</Text>
-          <Text style={styles.hint}>
-            {audioOn ? `Active — saves ${audioLength}s encrypted audio clip` : 'Off'}
-          </Text>
-        </View>
-        <Toggle value={audioOn} onChange={handleAudioToggle} />
-      </View>
-
-      {audioOn && (
-        <View style={styles.chipRow}>
-          {[30, 60, 120].map((s) => (
-            <TouchableOpacity
-              key={s}
-              style={[styles.chip, audioLength === s && styles.chipActive]}
-              onPress={() => handleAudioLength(s)}
-            >
-              <Text style={[styles.chipText, audioLength === s && styles.chipTextActive]}>
-                {s} seconds
-              </Text>
-            </TouchableOpacity>
-          ))}
-        </View>
-      )}
-
-      <View style={styles.divider} />
-
-      {/* Evidence Vault Link */}
-      <TouchableOpacity 
-        style={styles.settingRow} 
-        onPress={() => navigation.navigate('EvidenceGallery' as any)}
+      {/* Profile Card */}
+      <Pressable 
+        style={styles.profileCard} 
+        android_ripple={{ color: colors.ripple }}
+        onPress={() => navigation.navigate('MedicalCardEdit')} 
       >
+        <View style={styles.avatar}><Text style={{fontSize: 18, fontWeight:'800', color:colors.primary}}>T</Text></View>
         <View style={{ flex: 1 }}>
-          <Text style={styles.label}>Evidence Vault</Text>
-          <Text style={styles.hint}>View and export your encrypted photos, videos & audio.</Text>
+          <Text style={{ fontWeight: '800', fontSize: 16, color: colors.text }}>Tanvir Ahmed</Text>
+          <Text style={styles.hint}>+880 1XXX-XXXXXX</Text>
         </View>
-        <Feather name="shield" size={20} color={colors.primary} style={{ marginRight: 8 }} />
-        <Text style={styles.arrow}>›</Text>
-      </TouchableOpacity>
+        <Feather name="chevron-right" size={20} color={colors.text2} />
+      </Pressable>
 
-      <View style={styles.divider} />
-
-      {/* Battery Auto-Alert */}
-      <BatteryAlertSettings />
-
-      <View style={styles.divider} />
-
-      {/* Fall Detection */}
-      <View style={styles.row}>
-        <View style={{ flex: 1 }}>
-          <Text style={styles.label}>{t('settings.fall_detection')}</Text>
-          <Text style={styles.hint}>Detects a sudden fall and checks in before alerting contacts.</Text>
-        </View>
-        <Switch value={fallEnabled} onValueChange={toggleFallDetection} />
+      {/* Language Toggle */}
+      <View style={styles.segCtrl}>
+        <Pressable style={[styles.segBtn, currentLang === 'en' && styles.segBtnActive]} onPress={() => changeLanguage('en')}>
+          <Text style={[styles.segBtnText, currentLang === 'en' && { color: colors.primary }]}>English</Text>
+        </Pressable>
+        <Pressable style={[styles.segBtn, currentLang === 'bn' && styles.segBtnActive]} onPress={() => changeLanguage('bn')}>
+          <Text style={[styles.segBtnText, currentLang === 'bn' && { color: colors.primary }]}>বাংলা</Text>
+        </Pressable>
       </View>
-      
-      {fallEnabled && (
-        <View style={styles.chipRow}>
-          {(['low', 'medium', 'high'] as const).map((level) => (
-            <TouchableOpacity
-              key={level}
-              style={[styles.chip, sensitivity === level && styles.chipActive]}
-              onPress={() => changeSensitivity(level)}
-            >
-              <Text style={[styles.chipText, sensitivity === level && styles.chipTextActive]}>
-                {t(`settings.sensitivity_${level}` as any)}
-              </Text>
-            </TouchableOpacity>
-          ))}
-        </View>
-      )}
 
-      <View style={styles.divider} />
+      <Pressable style={styles.ghostBtn} android_ripple={{ color: 'rgba(220,38,38,0.2)' }}>
+        <Feather name="pause-circle" size={20} color={colors.danger} />
+        <Text style={styles.ghostBtnText}>Pause All Sharing</Text>
+      </Pressable>
 
-      {/* Medical Card */}
-      <TouchableOpacity 
-        style={styles.settingRow} 
-        onPress={() => navigation.navigate('MedicalCardEdit')}
-      >
-        <View style={{ flex: 1 }}>
-          <Text style={styles.label}>{t('settings.medical_card')}</Text>
-          <Text style={styles.hint}>Update your blood type, allergies, and notes.</Text>
+      <Text style={typography.sectionHeading}>Evidence Vault</Text>
+      <Pressable style={styles.card} android_ripple={{ color: colors.ripple }} onPress={() => navigation.navigate('EvidenceGallery')}>
+        <View style={styles.row}>
+          <Feather name="shield" size={22} color={colors.caution} style={{ marginRight: 12 }} />
+          <View style={{ flex: 1 }}>
+            <Text style={styles.cardTitle}>Secret Evidence Vault</Text>
+            <Text style={styles.hint}>Private storage · 3 clips saved</Text>
+          </View>
+          <Feather name="chevron-right" size={20} color={colors.text2} />
         </View>
-        <Text style={styles.arrow}>›</Text>
-      </TouchableOpacity>
-      
-      <View style={{ height: 40 }} />
+      </Pressable>
+
+      <Text style={typography.sectionHeading}>Safety Network</Text>
+      <View style={[styles.card, { paddingVertical: 6, paddingHorizontal: 16 }]}>
+        <View style={styles.contactRow}>
+          <View style={styles.contactAvatar}><Text style={{fontWeight:'700', color:colors.primary}}>A</Text></View>
+          <View><Text style={styles.cardTitle}>Ammu</Text><Text style={styles.hint}>Mother</Text></View>
+        </View>
+        <View style={styles.contactRow}>
+          <View style={styles.contactAvatar}><Text style={{fontWeight:'700', color:colors.primary}}>R</Text></View>
+          <View><Text style={styles.cardTitle}>Rafiq Bhai</Text><Text style={styles.hint}>Brother</Text></View>
+        </View>
+        <Pressable style={[styles.contactRow, { borderBottomWidth: 0 }]} android_ripple={{ color: colors.ripple }} onPress={() => navigation.navigate('AddContact')}>
+          <View style={[styles.contactAvatar, { backgroundColor: colors.inputBg }]}><Text style={{fontWeight:'700', color:colors.text2}}>+</Text></View>
+          <Text style={{ fontWeight: '700', fontSize: 14.5, color: colors.primary }}>Add trusted contact</Text>
+        </Pressable>
+      </View>
+
+      <Text style={typography.sectionHeading}>Preferences</Text>
+
+      {/* SOS Custom Message */}
+      <Pressable style={styles.card} android_ripple={{ color: colors.ripple }}>
+        <View style={styles.rowBetween}>
+          <View style={styles.row}>
+            <Feather name="message-square" size={22} color={colors.text2} style={{ marginRight: 12 }} />
+            <View>
+              <Text style={styles.cardTitle}>SOS Alert Message</Text>
+              <Text style={styles.hint}>Customize text sent to contacts</Text>
+            </View>
+          </View>
+          <Feather name="chevron-right" size={20} color={colors.text2} />
+        </View>
+      </Pressable>
+
+      {/* Toggles */}
+      <View style={styles.card}>
+        <View style={styles.rowBetween}>
+          <View style={styles.row}>
+            <Feather name="eye-off" size={22} color={colors.text2} style={{ marginRight: 12 }} />
+            <View>
+              <Text style={styles.cardTitle}>Silent SOS</Text>
+              <Text style={styles.hint}>No screen, sound, or vibration</Text>
+            </View>
+          </View>
+          <Toggle value={silentSosOn} onChange={setSilentSosOn} />
+        </View>
+      </View>
+
+      <View style={styles.card}>
+        <View style={styles.rowBetween}>
+          <View style={styles.row}>
+            <Feather name="mic" size={22} color={colors.text2} style={{ marginRight: 12 }} />
+            <View>
+              <Text style={styles.cardTitle}>Auto-Record Audio on SOS</Text>
+              <Text style={styles.hint}>Records 5 mins in background</Text>
+            </View>
+          </View>
+          <Toggle value={audioOn} onChange={handleAudioToggle} />
+        </View>
+      </View>
+
+      <View style={styles.card}>
+        <View style={[styles.rowBetween, { marginBottom: 12 }]}>
+          <View style={styles.row}>
+            <Feather name="layout" size={22} color={colors.text2} style={{ marginRight: 12 }} />
+            <View>
+              <Text style={styles.cardTitle}>Discreet Mode</Text>
+              <Text style={styles.hint}>Disguise app as a calculator</Text>
+            </View>
+          </View>
+          <Toggle value={discreetModeEnabled} onChange={handleDiscreetToggle} />
+        </View>
+        <View style={styles.subRow}>
+          <Text style={styles.hint}>Auto-hide on phone lock</Text>
+          <Toggle value={true} onChange={() => {}} />
+        </View>
+      </View>
+
+      <View style={styles.card}>
+        <View style={styles.rowBetween}>
+          <View style={styles.row}>
+            <Feather name="battery" size={22} color={colors.text2} style={{ marginRight: 12 }} />
+            <View>
+              <Text style={styles.cardTitle}>Battery-Critical Alert</Text>
+              <Text style={styles.hint}>Send location before phone dies</Text>
+            </View>
+          </View>
+          <Toggle value={batteryAlertOn} onChange={setBatteryAlertOn} />
+        </View>
+      </View>
+
+      <View style={styles.card}>
+        <View style={styles.rowBetween}>
+          <View style={styles.row}>
+            <Feather name="activity" size={22} color={colors.text2} style={{ marginRight: 12 }} />
+            <View>
+              <Text style={styles.cardTitle}>Fall Detection</Text>
+              <Text style={styles.hint}>Detects sudden fall</Text>
+            </View>
+          </View>
+          <Toggle value={fallEnabled} onChange={toggleFallDetection} />
+        </View>
+        {fallEnabled && (
+          <View style={styles.chipRow}>
+            {(['low', 'medium', 'high'] as const).map((level) => (
+              <Pressable key={level} style={[styles.chip, sensitivity === level && styles.chipActive]} onPress={() => changeSensitivity(level)}>
+                <Text style={[styles.chipText, sensitivity === level && styles.chipTextActive]}>{t(`settings.sensitivity_${level}` as any)}</Text>
+              </Pressable>
+            ))}
+          </View>
+        )}
+      </View>
+
     </ScrollView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, padding: 24, backgroundColor: '#fff' },
-  row: { flexDirection: 'row', alignItems: 'center', paddingVertical: 16 },
-  label: { fontSize: 16, fontWeight: 'bold', color: '#111827' },
-  hint: { fontSize: 13, color: '#6B7280', marginTop: 4 },
-  divider: { height: 1, backgroundColor: '#E5E7EB', marginVertical: 8 },
-  settingRow: { flexDirection: 'row', alignItems: 'center', paddingVertical: 16 },
-  arrow: { fontSize: 24, color: '#9CA3AF', paddingLeft: 8 },
-  chipRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 16 },
-  chip: { minHeight: 36, paddingVertical: 8, paddingHorizontal: 14, borderRadius: 20, backgroundColor: '#EDE9FE', justifyContent: 'center' },
-  chipActive: { backgroundColor: '#6B21A8' },
-  chipText: { color: '#6B21A8', fontWeight: 'bold' },
+  container: { flex: 1, backgroundColor: colors.bg },
+  content: { padding: spacing.xl, paddingBottom: 100 },
+  screenTitle: { ...typography.screenTitle, marginBottom: 16 },
+  
+  profileCard: {
+    backgroundColor: colors.cardBg, borderWidth: 1, borderColor: colors.border, borderRadius: radii.card,
+    padding: 16, flexDirection: 'row', alignItems: 'center', marginBottom: 20
+  },
+  avatar: { width: 52, height: 52, borderRadius: 26, backgroundColor: colors.primaryLight, alignItems: 'center', justifyContent: 'center', marginRight: 14 },
+  
+  segCtrl: { flexDirection: 'row', backgroundColor: colors.inputBg, borderRadius: radii.md, padding: 3, borderWidth: 1, borderColor: colors.border, marginBottom: 20 },
+  segBtn: { flex: 1, paddingVertical: 10, alignItems: 'center', borderRadius: radii.sm },
+  segBtnActive: { backgroundColor: colors.cardBg, elevation: 2, shadowColor: '#000', shadowOpacity: 0.1, shadowRadius: 3, shadowOffset: { width: 0, height: 1 } },
+  segBtnText: { fontSize: 13.5, fontWeight: '700', color: colors.text2 },
+
+  ghostBtn: { backgroundColor: colors.dangerTint, padding: 14, borderRadius: radii.md, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', marginBottom: 20, gap: 8 },
+  ghostBtnText: { color: colors.danger, fontWeight: '800', fontSize: 15 },
+
+  card: { backgroundColor: colors.cardBg, borderWidth: 1, borderColor: colors.border, borderRadius: radii.card, padding: 16, marginBottom: 12 },
+  cardTitle: { fontWeight: '700', fontSize: 14.5, color: colors.text },
+  hint: { fontSize: 13, color: colors.text2, marginTop: 2 },
+  
+  row: { flexDirection: 'row', alignItems: 'center' },
+  rowBetween: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  subRow: { borderTopWidth: 1, borderTopColor: colors.border, paddingTop: 12, marginTop: 12, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+  
+  contactRow: { flexDirection: 'row', alignItems: 'center', paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: colors.border, gap: 12 },
+  contactAvatar: { width: 42, height: 42, borderRadius: 21, backgroundColor: colors.primaryLight, alignItems: 'center', justifyContent: 'center' },
+  
+  chipRow: { flexDirection: 'row', gap: 8, marginTop: 12 },
+  chip: { paddingVertical: 8, paddingHorizontal: 16, borderRadius: radii.pill, borderWidth: 1.5, borderColor: colors.border, backgroundColor: colors.cardBg },
+  chipActive: { backgroundColor: colors.primary, borderColor: colors.primary },
+  chipText: { fontSize: 14, fontWeight: '700', color: colors.text2 },
   chipTextActive: { color: '#fff' },
 });

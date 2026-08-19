@@ -1,11 +1,10 @@
-import React from 'react';
-import { View, Text, StyleSheet, ActivityIndicator } from 'react-native';
+import React, { useRef } from 'react';
+import { View, Text, StyleSheet, ActivityIndicator, Animated } from 'react-native';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { Feather } from '@expo/vector-icons';
 import { RootStackParamList } from '../navigation/AppNavigator';
 
-import { ScreenHeader, Button, Card } from '../components';
-import { SosButton } from '../components/SosButton';
+import { ScreenHeader, Button, Card, SosButton } from '../components';
 import { useSosSimulation } from '../practice/useSosSimulation';
 import { colors, spacing, typography } from '../theme/theme';
 
@@ -16,16 +15,20 @@ export default function PracticeSosScreen({ navigation }: Props) {
 
   return (
     <View style={styles.container}>
-      <ScreenHeader
-        title="Practice SOS"
-        subtitle="Simulated training — zero network, SMS, or emergency calls fired."
-      />
+      <View style={{ paddingHorizontal: spacing.xl, marginTop: spacing.lg }}>
+        <ScreenHeader
+          title="Practice SOS"
+          subtitle="Simulated training — zero network, SMS, or emergency calls fired."
+        />
+      </View>
 
       <View style={styles.centerHero}>
         {stage === 'idle' && (
           <View style={styles.heroBox}>
-            <SosButton onTrigger={trigger} />
-            <Text style={styles.hintText}>Press and hold for 1 second to trigger</Text>
+            <View style={styles.sosRingOuter}>
+              <SosButton onTrigger={trigger} />
+            </View>
+            <Text style={styles.hintText}>Press and hold for 1.5 seconds to trigger</Text>
           </View>
         )}
 
@@ -64,15 +67,21 @@ export default function PracticeSosScreen({ navigation }: Props) {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#FAFAFA', padding: spacing.lg, justifyContent: 'space-between' },
-  centerHero: { flex: 1, justifyContent: 'center', alignItems: 'center' },
+  container: { flex: 1, backgroundColor: colors.bg, justifyContent: 'space-between' },
+  centerHero: { flex: 1, justifyContent: 'center', alignItems: 'center', padding: spacing.xl },
   heroBox: { alignItems: 'center' },
-  hintText: { ...typography.body, color: colors.textSecondary, marginTop: spacing.lg, fontSize: 14, fontWeight: '500' },
-  simulatingTitle: { ...typography.sectionHeading, fontSize: 18, color: colors.textPrimary, marginBottom: 4 },
-  simulatingSub: { ...typography.body, fontSize: 14, color: colors.textSecondary, textAlign: 'center' },
+  sosRingOuter: {
+    width: 172, height: 172, borderRadius: 86,
+    alignItems: 'center', justifyContent: 'center',
+    borderWidth: 2, borderColor: colors.dangerTint,
+    marginBottom: 12
+  },
+  hintText: { ...typography.hint, marginTop: spacing.sm, fontSize: 14, fontWeight: '600' },
+  simulatingTitle: { ...typography.sectionHeading, fontSize: 18, color: colors.text, marginBottom: 4 },
+  simulatingSub: { ...typography.hint, fontSize: 14, textAlign: 'center' },
   successCard: { alignItems: 'center', padding: spacing.xl, width: '100%' },
   successIconBox: { marginBottom: spacing.md },
   successTitle: { ...typography.sectionHeading, color: colors.safe, fontSize: 20, marginBottom: 8 },
-  successBody: { ...typography.body, color: colors.textSecondary, textAlign: 'center', lineHeight: 22 },
-  bottomBar: { paddingVertical: spacing.md },
+  successBody: { ...typography.hint, textAlign: 'center', lineHeight: 22, fontSize: 14 },
+  bottomBar: { paddingVertical: spacing.md, paddingHorizontal: spacing.xl },
 });

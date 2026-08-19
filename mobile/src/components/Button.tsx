@@ -16,7 +16,7 @@ const variantStyles: Record<ButtonVariant, { bg: string; text: string; border?: 
   primary: { bg: colors.primary, text: '#FFFFFF' },
   danger: { bg: colors.danger, text: '#FFFFFF' },
   safe: { bg: colors.safe, text: '#FFFFFF' },
-  outline: { bg: colors.background, text: colors.textPrimary, border: colors.border },
+  outline: { bg: colors.cardBg, text: colors.text, border: colors.border },
 };
 
 export function Button({ label, variant = 'primary', style, ...rest }: ButtonProps) {

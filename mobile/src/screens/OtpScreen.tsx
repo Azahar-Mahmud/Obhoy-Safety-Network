@@ -1,9 +1,12 @@
-import { useState, useEffect } from 'react';
-import { View, Text, TextInput, TouchableOpacity, StyleSheet } from 'react-native';
+import React, { useState, useEffect } from 'react';
+import { View, Text, TextInput, TouchableOpacity, StyleSheet, ActivityIndicator } from 'react-native';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../navigation/AppNavigator';
 import { apiRequest } from '../api/client';
 import { t, useLanguage } from '../i18n';
+import { colors, typography, radii, spacing } from '../theme/theme';
+import { Button } from '../components/Button';
+import Svg, { Path } from 'react-native-svg';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'Otp'>;
 
@@ -11,14 +14,14 @@ export default function OtpScreen({ route, navigation }: Props) {
   useLanguage();
   const { phone, otpWindowSeconds } = route.params;
   const [code, setCode] = useState('');
-  const [secondsLeft, setSecondsLeft] = useState(otpWindowSeconds);
+  const [secondsLeft, setSecondsLeft] = useState(otpWindowSeconds || 30);
   const [error, setError] = useState('');
 
   const isDemoMode = process.env.EXPO_PUBLIC_DEMO_MODE === 'true';
 
   useEffect(() => {
     if (secondsLeft <= 0) return;
-    const timer = setTimeout(() => setSecondsLeft((s) => s - 1), 1000);
+    const timer = setTimeout(() => setSecondsLeft((s: number) => s - 1), 1000);
     return () => clearTimeout(timer);
   }, [secondsLeft]);
 
@@ -42,51 +45,81 @@ export default function OtpScreen({ route, navigation }: Props) {
 
   return (
     <View style={styles.container}>
-      <Text style={styles.title}>{t('auth.otp_title')}</Text>
-      <Text style={styles.subtitle}>
-        {secondsLeft > 0 ? `Waiting for SMS... ${secondsLeft}s` : "Didn't get a code?"}
-      </Text>
-      <TextInput
-        style={styles.input}
-        placeholder="6-digit code"
-        keyboardType="number-pad"
-        value={code}
-        onChangeText={setCode}
-        maxLength={6}
-      />
-      {error ? <Text style={styles.error}>{error}</Text> : null}
-      
-      <TouchableOpacity style={styles.button} onPress={() => handleVerify()} disabled={code.length !== 6}>
-        <Text style={styles.buttonText}>{t('auth.continue')}</Text>
-      </TouchableOpacity>
-
-      {/* --- DEMO MODE SKIP BUTTON --- */}
-      {isDemoMode && (
-        <TouchableOpacity style={styles.demoSkipButton} onPress={handleDemoSkip}>
-          <Text style={styles.demoSkipText}>⚡ Skip Verification (Demo Mode)</Text>
+      <View style={styles.subHeader}>
+        <TouchableOpacity style={styles.backBtn} onPress={() => navigation.goBack()}>
+          <Svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke={colors.text} strokeWidth="2.5" strokeLinecap="round">
+            <Path d="M15 18l-6-6 6-6"/>
+          </Svg>
         </TouchableOpacity>
-      )}
+      </View>
 
-      {/* Standard timeout fallback */}
-      {secondsLeft <= 0 && !isDemoMode && (
-        <TouchableOpacity style={styles.skipButton} onPress={() => navigation.navigate('SetPin', { phone })}>
-          <Text style={styles.skipText}>{t('auth.otp_skip')}</Text>
-        </TouchableOpacity>
-      )}
+      <View style={styles.content}>
+        <Text style={styles.fieldLabel}>{t('auth.otp_title') || 'Enter your OTP'}</Text>
+        <Text style={styles.hint}>{phone}</Text>
+        
+        <TextInput
+          style={styles.pinInput}
+          placeholder="••••••"
+          placeholderTextColor={colors.text2}
+          keyboardType="number-pad"
+          value={code}
+          onChangeText={setCode}
+          maxLength={6}
+        />
+
+        <View style={styles.waitArea}>
+          {secondsLeft > 0 ? (
+            <>
+              <ActivityIndicator size="small" color={colors.primary} style={{ marginRight: 8 }} />
+              <Text style={styles.waitText}>Waiting for OTP... {secondsLeft}s</Text>
+            </>
+          ) : (
+            <Text style={[styles.waitText, { color: colors.safe }]}>Check your messages</Text>
+          )}
+        </View>
+
+        {error ? <Text style={styles.error}>{error}</Text> : null}
+        
+        <Button 
+          label={t('auth.continue')} 
+          onPress={() => handleVerify()} 
+          disabled={code.length !== 6} 
+          style={{ opacity: code.length === 6 ? 1 : 0.5 }}
+        />
+
+        {isDemoMode && (
+          <TouchableOpacity style={styles.demoSkipButton} onPress={handleDemoSkip}>
+            <Text style={styles.demoSkipText}>⚡ Skip Verification (Demo Mode)</Text>
+          </TouchableOpacity>
+        )}
+
+        {secondsLeft <= 0 && !isDemoMode && (
+          <TouchableOpacity style={styles.skipButton} onPress={() => navigation.navigate('SetPin', { phone })}>
+            <Text style={styles.skipText}>{t('auth.otp_skip') || 'Didn\'t get it? Skip for now'}</Text>
+          </TouchableOpacity>
+        )}
+      </View>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, padding: 24, justifyContent: 'center' },
-  title: { fontSize: 20, fontWeight: 'bold', marginBottom: 8, color: '#111827' },
-  subtitle: { fontSize: 14, color: '#6B7280', marginBottom: 16 },
-  input: { borderWidth: 1, borderColor: '#6B7280', borderRadius: 8, padding: 14, fontSize: 16, marginBottom: 12, textAlign: 'center', letterSpacing: 4, minHeight: 48 },
-  button: { backgroundColor: '#6B21A8', borderRadius: 8, padding: 16, minHeight: 52, alignItems: 'center', justifyContent: 'center' },
-  buttonText: { color: '#fff', fontSize: 18, fontWeight: 'bold' },
-  demoSkipButton: { marginTop: 12, backgroundColor: '#EDE9FE', padding: 14, borderRadius: 8, alignItems: 'center' },
-  demoSkipText: { color: '#6B21A8', fontWeight: 'bold', fontSize: 14 },
-  skipButton: { marginTop: 16, alignItems: 'center' },
-  skipText: { color: '#6B21A8', fontSize: 15, textDecorationLine: 'underline' },
-  error: { color: '#DC2626', marginBottom: 12 },
+  container: { flex: 1, backgroundColor: colors.bg, padding: spacing.xl },
+  subHeader: { position: 'absolute', top: 40, left: 24, zIndex: 10 },
+  backBtn: { width: 40, height: 40, borderRadius: 20, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.cardBg },
+  content: { flex: 1, justifyContent: 'center' },
+  fieldLabel: { fontSize: 20, fontWeight: '800', color: colors.text, marginBottom: 6 },
+  hint: { fontSize: 14, color: colors.text2, marginBottom: 24, fontWeight: '600' },
+  pinInput: {
+    backgroundColor: colors.inputBg, borderWidth: 1.5, borderColor: colors.border,
+    borderRadius: radii.md, padding: 16, fontSize: 28, color: colors.text,
+    textAlign: 'center', letterSpacing: 8, fontWeight: '700', marginBottom: 20, minHeight: 64,
+  },
+  waitArea: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', height: 40, marginBottom: 20 },
+  waitText: { fontSize: 13, color: colors.text2, fontWeight: '600' },
+  demoSkipButton: { marginTop: 16, backgroundColor: colors.primaryLight, padding: 14, borderRadius: radii.md, alignItems: 'center' },
+  demoSkipText: { color: colors.primary, fontWeight: '800', fontSize: 14 },
+  skipButton: { marginTop: 24, alignItems: 'center' },
+  skipText: { color: colors.primary, fontSize: 15, fontWeight: '700', textDecorationLine: 'underline' },
+  error: { color: colors.danger, marginBottom: 16, textAlign: 'center', fontWeight: '600' },
 });

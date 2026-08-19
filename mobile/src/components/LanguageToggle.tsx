@@ -1,55 +1,43 @@
 import React from 'react';
-import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
-import { t, getLanguage, setLanguage, useLanguage } from '../i18n';
+import { View, Text, Pressable, StyleSheet } from 'react-native';
+import { t, useLanguage, getLanguage, setLanguage } from '../i18n';
 import { syncLanguageToBackend } from '../utils/languageSync';
+import { colors, radii } from '../theme/theme';
 
 export default function LanguageToggle() {
-  useLanguage();
+  useLanguage(); // Triggers re-render when language changes
   const current = getLanguage();
 
-  const choose = async (lang: 'bn' | 'en') => {
-    if (lang === current) return;
-    await setLanguage(lang);
+  const choose = async (selected: 'bn' | 'en') => {
+    if (selected === current) return;
+    await setLanguage(selected);
     syncLanguageToBackend();
   };
 
   return (
-    <View style={styles.wrap}>
-      <Text style={styles.label}>{t('lang.setting_label')}</Text>
-      <View style={styles.row}>
-        <TouchableOpacity
-          style={[styles.chip, current === 'bn' && styles.chipActive]}
-          onPress={() => choose('bn')}
-        >
-          <Text style={[styles.chipText, current === 'bn' && styles.chipTextActive]}>বাংলা</Text>
-        </TouchableOpacity>
-        <TouchableOpacity
-          style={[styles.chip, current === 'en' && styles.chipActive]}
-          onPress={() => choose('en')}
-        >
-          <Text style={[styles.chipText, current === 'en' && styles.chipTextActive]}>English</Text>
-        </TouchableOpacity>
-      </View>
-      <Text style={styles.note}>{t('lang.setting_note')}</Text>
+    <View style={styles.segCtrl}>
+      <Pressable 
+        style={[styles.segBtn, current === 'en' && styles.segBtnActive]} 
+        onPress={() => choose('en')}
+      >
+        <Text style={[styles.segBtnText, current === 'en' && { color: colors.primary }]}>English</Text>
+      </Pressable>
+      <Pressable 
+        style={[styles.segBtn, current === 'bn' && styles.segBtnActive]} 
+        onPress={() => choose('bn')}
+      >
+        <Text style={[styles.segBtnText, current === 'bn' && { color: colors.primary }]}>বাংলা</Text>
+      </Pressable>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  wrap: { paddingVertical: 12 },
-  label: { fontSize: 16, color: '#111827', marginBottom: 8 },
-  row: { flexDirection: 'row' },
-  chip: {
-    minHeight: 44,
-    justifyContent: 'center',
-    paddingHorizontal: 20,
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: '#6B21A8',
-    marginRight: 12,
+  segCtrl: { 
+    flexDirection: 'row', backgroundColor: colors.inputBg, borderRadius: radii.md, 
+    padding: 3, borderWidth: 1, borderColor: colors.border, marginBottom: 20 
   },
-  chipActive: { backgroundColor: '#6B21A8' },
-  chipText: { color: '#6B21A8', fontWeight: 'bold' },
-  chipTextActive: { color: '#FFFFFF' },
-  note: { fontSize: 13, color: '#6B7280', marginTop: 8 },
+  segBtn: { flex: 1, paddingVertical: 10, alignItems: 'center', borderRadius: radii.sm },
+  segBtnActive: { backgroundColor: colors.cardBg, elevation: 2, shadowColor: '#000', shadowOpacity: 0.1, shadowRadius: 3, shadowOffset: { width: 0, height: 1 } },
+  segBtnText: { fontSize: 13.5, fontWeight: '700', color: colors.text2 },
 });

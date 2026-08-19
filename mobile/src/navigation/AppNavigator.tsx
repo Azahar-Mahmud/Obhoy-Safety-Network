@@ -3,9 +3,6 @@ import { View, ActivityIndicator } from 'react-native';
 import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import * as SecureStore from 'expo-secure-store';
-import PracticeModeScreen from '../screens/PracticeModeScreen';
-import PracticeSosScreen from '../screens/PracticeSosScreen';
-import PracticeCheckinScreen from '../screens/PracticeCheckinScreen';
 
 // Contexts & i18n
 import { useAuth } from '../context/AuthContext';
@@ -14,19 +11,15 @@ import { useFallDetection } from '../context/FallDetectionContext';
 import { useLanguage, t } from '../i18n';
 import { LanguageChosenContext } from '../context/LanguageChosenContext';
 
-// First-Run & Onboarding Screens (Obhoy_50)
+// Screens
 import LanguageSelectScreen from '../screens/LanguageSelectScreen';
 import OnboardingContactScreen from '../screens/onboarding/OnboardingContactScreen';
 import OnboardingPermissionsScreen from '../screens/onboarding/OnboardingPermissionsScreen';
 import OnboardingTestSosScreen from '../screens/onboarding/OnboardingTestSosScreen';
-
-// Auth Screens
 import PhoneEntryScreen from '../screens/PhoneEntryScreen';
 import OtpScreen from '../screens/OtpScreen';
 import SetPinScreen from '../screens/SetPinScreen';
 import LoginPinScreen from '../screens/LoginPinScreen';
-
-// Main App Screens
 import HomeScreen from '../screens/HomeScreen';
 import ContactsListScreen from '../screens/ContactsListScreen';
 import AddContactScreen from '../screens/AddContactScreen';
@@ -50,15 +43,14 @@ import LastAlertStatusScreen from '../screens/LastAlertStatusScreen';
 import MedicalCardEditScreen from '../screens/MedicalCardEditScreen';
 import FallDetectedScreen from '../screens/FallDetectedScreen';
 import MedicalCardScreen from '../screens/MedicalCardScreen';
-
-// Family Screens
 import FamilyScreen from '../screens/FamilyScreen';
 import FamilyInviteScreen from '../screens/FamilyInviteScreen';
 import FamilyPrivacyScreen from '../screens/FamilyPrivacyScreen';
-
-// Discreet Mode Screen
 import CalculatorScreen from '../screens/CalculatorScreen';
 import SettingsScreen from '../screens/SettingsScreen';
+import PracticeModeScreen from '../screens/PracticeModeScreen';
+import PracticeSosScreen from '../screens/PracticeSosScreen';
+import PracticeCheckinScreen from '../screens/PracticeCheckinScreen';
 
 export type RootStackParamList = {
   LanguageSelect: undefined;
@@ -73,30 +65,10 @@ export type RootStackParamList = {
   ContactsList: undefined;
   AddContact: undefined;
   SosCountdown: undefined;
-  SosConfirmation: {
-    channel: 'backend' | 'native' | 'lan' | 'mesh' | 'failed';
-    contactsNotified: { name: string; phone: string; status: 'sent' | 'failed' }[];
-    lanBroadcastSent?: boolean;
-    meshBroadcastSent?: boolean;
-    error?: string;
-  };
-  JourneySetup: { 
-    pickedLat?: number; 
-    pickedLng?: number; 
-    targetField?: 'from' | 'to';
-  } | undefined;
-  MapPointPicker: { 
-    title: string; 
-    initialLat?: number; 
-    initialLng?: number; 
-    targetField: 'from' | 'to';
-  };
-  ActiveJourney: { 
-    journeyId: string; 
-    checkinIntervalMinutes: number; 
-    mode?: 'interval' | 'scheduled'; 
-    scheduledDeadline?: string; 
-  };
+  SosConfirmation: { channel: string; contactsNotified: any[]; error?: string; };
+  JourneySetup: { pickedLat?: number; pickedLng?: number; targetField?: 'from' | 'to'; } | undefined;
+  MapPointPicker: { title: string; initialLat?: number; initialLng?: number; targetField: 'from' | 'to'; };
+  ActiveJourney: { journeyId: string; checkinIntervalMinutes: number; mode?: 'interval' | 'scheduled'; scheduledDeadline?: string; };
   Directory: undefined;
   AppGuide: undefined;
   Map: undefined;
@@ -154,68 +126,64 @@ export default function AppNavigator() {
 
   const showDisguise = discreetModeEnabled && !isUnlocked;
 
-  if (!showDisguise && phase === 'countdown') {
-    return <FallDetectedScreen onResolved={resolveCountdown} onEscalate={escalateToCard} />;
-  }
-  
-  if (!showDisguise && phase === 'card') {
-    return <MedicalCardScreen />;
-  }
+  if (!showDisguise && phase === 'countdown') return <FallDetectedScreen onResolved={resolveCountdown} onEscalate={escalateToCard} />;
+  if (!showDisguise && phase === 'card') return <MedicalCardScreen />;
 
   return (
     <NavigationContainer>
-      <Stack.Navigator screenOptions={{ headerShown: !showDisguise }}>
+      {/* 
+        This is the change! Headers hidden globally, 
+        Slide animations, and background color matches our theme 
+      */}
+      <Stack.Navigator screenOptions={{ headerShown: false, animation: 'slide_from_right', contentStyle: { backgroundColor: '#F7F5FA' } }}>
         {showDisguise ? (
-          <Stack.Screen name="Calculator" component={CalculatorScreen} options={{ headerShown: false }} />
+          <Stack.Screen name="Calculator" component={CalculatorScreen} />
         ) : !languageChosen ? (
-          <Stack.Screen name="LanguageSelect" component={LanguageSelectScreen} options={{ headerShown: false }} />
+          <Stack.Screen name="LanguageSelect" component={LanguageSelectScreen} />
         ) : !token ? (
           <>
-            <Stack.Screen name="PhoneEntry" component={PhoneEntryScreen} options={{ title: 'Obhoy' }} />
-            <Stack.Screen name="Otp" component={OtpScreen} options={{ title: 'Verify' }} />
-            <Stack.Screen name="SetPin" component={SetPinScreen} options={{ title: t('auth.set_pin_title') }} />
-            <Stack.Screen name="LoginPin" component={LoginPinScreen} options={{ title: t('auth.login_pin_title') }} />
+            <Stack.Screen name="PhoneEntry" component={PhoneEntryScreen} />
+            <Stack.Screen name="Otp" component={OtpScreen} />
+            <Stack.Screen name="SetPin" component={SetPinScreen} />
+            <Stack.Screen name="LoginPin" component={LoginPinScreen} />
           </>
         ) : (
           <>
-            {/* Authenticated Stack: Onboarding flow for first-time users */}
             {!onboardingComplete && (
               <>
-                <Stack.Screen name="OnboardingContact" component={OnboardingContactScreen} options={{ title: 'Add Contact', headerBackVisible: false }} />
-                <Stack.Screen name="OnboardingPermissions" component={OnboardingPermissionsScreen} options={{ title: 'Permissions' }} />
-                <Stack.Screen name="OnboardingTestSos" component={OnboardingTestSosScreen} options={{ title: 'Practice Run' }} />
+                <Stack.Screen name="OnboardingContact" component={OnboardingContactScreen} />
+                <Stack.Screen name="OnboardingPermissions" component={OnboardingPermissionsScreen} />
+                <Stack.Screen name="OnboardingTestSos" component={OnboardingTestSosScreen} />
               </>
             )}
-
-            {/* Main Application Screens */}
-            <Stack.Screen name="Home" component={HomeScreen} options={{ title: 'Obhoy' }} />
-            <Stack.Screen name="Family" component={FamilyScreen} options={{ title: t('family.title') }} />
-            <Stack.Screen name="FamilyInvite" component={FamilyInviteScreen} options={{ title: t('family.add_member') }} />
-            <Stack.Screen name="FamilyPrivacy" component={FamilyPrivacyScreen} options={{ title: t('family.privacy') }} />
-            <Stack.Screen name="ContactsList" component={ContactsListScreen} options={{ title: t('contacts.title') }} />
-            <Stack.Screen name="AddContact" component={AddContactScreen} options={{ title: t('contacts.add_title') }} />
-            <Stack.Screen name="SosCountdown" component={SosCountdownScreen} options={{ headerShown: false }} />
-            <Stack.Screen name="SosConfirmation" component={SosConfirmationScreen} options={{ title: t('sos.sent_title') }} />
-            <Stack.Screen name="JourneySetup" component={JourneySetupScreen} options={{ title: t('journey.start') }} />
-            <Stack.Screen name="MapPointPicker" component={MapPointPickerScreen} options={{ title: 'Select Location' }} />
-            <Stack.Screen name="ActiveJourney" component={ActiveJourneyScreen} options={{ title: t('home.journey'), headerBackVisible: false }} />
-            <Stack.Screen name="Directory" component={DirectoryScreen} options={{ title: t('dir.title') }} />
-            <Stack.Screen name="AppGuide" component={AppGuideScreen} options={{ title: 'App Guide' }} />
-            <Stack.Screen name="Map" component={MapScreen} options={{ title: t('map.title') }} />
-            <Stack.Screen name="ReportCategory" component={ReportCategoryScreen} options={{ title: t('map.report_button') }} />
-            <Stack.Screen name="ReportConfirm" component={ReportConfirmScreen} options={{ title: t('report.confirm_location') }} />
-            <Stack.Screen name="ReportDescription" component={ReportDescriptionScreen} options={{ title: t('report.description') }} />
-            <Stack.Screen name="ReportSuccess" component={ReportSuccessScreen} options={{ headerShown: false }} />
-            <Stack.Screen name="Settings" component={SettingsScreen} options={{ title: t('settings.title') }} />
-            <Stack.Screen name="NearbyAlerts" component={NearbyAlertsScreen} options={{ title: t('home.nearby_alerts') }} />
-            <Stack.Screen name="MedicalCardEdit" component={MedicalCardEditScreen} options={{ title: t('settings.medical_card') }} />
-            <Stack.Screen name="LastAlertStatus" component={LastAlertStatusScreen} options={{ title: t('sos.last_alert_title') }} />
-            <Stack.Screen name="EvidenceCapture" component={EvidenceCaptureScreen} options={{ title: t('home.evidence') }} />
-            <Stack.Screen name="EvidenceList" component={EvidenceListScreen} options={{ title: t('home.evidence') }} />
-            <Stack.Screen name="EvidenceGallery" component={EvidenceGalleryScreen} options={{ title: 'Evidence Vault' }} />
-            <Stack.Screen name="PracticeMode" component={PracticeModeScreen} options={{ title: 'Practice Mode' }} />
-            <Stack.Screen name="PracticeSos" component={PracticeSosScreen} options={{ title: 'Practice SOS' }} />
-            <Stack.Screen name="PracticeCheckin" component={PracticeCheckinScreen} options={{ title: 'Practice Check-in' }} />
+            <Stack.Screen name="Home" component={HomeScreen} />
+            <Stack.Screen name="Family" component={FamilyScreen} />
+            <Stack.Screen name="FamilyInvite" component={FamilyInviteScreen} />
+            <Stack.Screen name="FamilyPrivacy" component={FamilyPrivacyScreen} />
+            <Stack.Screen name="ContactsList" component={ContactsListScreen} />
+            <Stack.Screen name="AddContact" component={AddContactScreen} />
+            <Stack.Screen name="SosCountdown" component={SosCountdownScreen} />
+            <Stack.Screen name="SosConfirmation" component={SosConfirmationScreen} />
+            <Stack.Screen name="JourneySetup" component={JourneySetupScreen} />
+            <Stack.Screen name="MapPointPicker" component={MapPointPickerScreen} />
+            <Stack.Screen name="ActiveJourney" component={ActiveJourneyScreen} />
+            <Stack.Screen name="Directory" component={DirectoryScreen} />
+            <Stack.Screen name="AppGuide" component={AppGuideScreen} />
+            <Stack.Screen name="Map" component={MapScreen} />
+            <Stack.Screen name="ReportCategory" component={ReportCategoryScreen} />
+            <Stack.Screen name="ReportConfirm" component={ReportConfirmScreen} />
+            <Stack.Screen name="ReportDescription" component={ReportDescriptionScreen} />
+            <Stack.Screen name="ReportSuccess" component={ReportSuccessScreen} />
+            <Stack.Screen name="Settings" component={SettingsScreen} />
+            <Stack.Screen name="NearbyAlerts" component={NearbyAlertsScreen} />
+            <Stack.Screen name="MedicalCardEdit" component={MedicalCardEditScreen} />
+            <Stack.Screen name="LastAlertStatus" component={LastAlertStatusScreen} />
+            <Stack.Screen name="EvidenceCapture" component={EvidenceCaptureScreen} />
+            <Stack.Screen name="EvidenceList" component={EvidenceListScreen} />
+            <Stack.Screen name="EvidenceGallery" component={EvidenceGalleryScreen} />
+            <Stack.Screen name="PracticeMode" component={PracticeModeScreen} />
+            <Stack.Screen name="PracticeSos" component={PracticeSosScreen} />
+            <Stack.Screen name="PracticeCheckin" component={PracticeCheckinScreen} />
           </>
         )}
       </Stack.Navigator>

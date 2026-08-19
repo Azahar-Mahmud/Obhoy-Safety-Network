@@ -9,16 +9,16 @@ import { Feather } from '@expo/vector-icons';
 import { RootStackParamList } from '../navigation/AppNavigator';
 import { apiRequest } from '../api/client';
 import { broadcastCommunityAlert, AlertCategory } from '../utils/communityAlert';
-import { getRoute } from '../utils/journeyRouting'; // <--- Import getRoute (Obhoy_49)
-import { colors, radii, spacing } from '../theme/theme';
+import { getRoute } from '../utils/journeyRouting'; 
+import { colors, radii, spacing, typography } from '../theme/theme';
 import { t, useLanguage } from '../i18n';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'Map'>;
 
 function getScoreColor(score: number | null) {
-  if (score === null) return { backgroundColor: '#9CA3AF' }; 
-  if (score >= 4) return { backgroundColor: colors.safe };     
-  return { backgroundColor: colors.caution };                      
+  if (score === null) return { color: colors.text2, bg: '#F3F4F6' }; 
+  if (score >= 4) return { color: '#15803D', bg: colors.safeTint };     
+  return { color: '#B45309', bg: colors.cautionTint };                      
 }
 
 function buildMapHtml(
@@ -28,7 +28,7 @@ function buildMapHtml(
   checkins: any[], 
   alerts: any[], 
   familyMembers: any[],
-  routePoints: any[] = [] // <--- Added routePoints parameter
+  routePoints: any[] = []
 ) {
   const markersScript = `
     function pinIconHtml(kind, letter) {
@@ -64,31 +64,26 @@ function buildMapHtml(
     }
   `;
 
-  // 1. Incident Report Pins (Amber Caution Triangles)
   const reportPins = reports.map((r) => {
     const label = `<b>${r.category.replace(/_/g, ' ').toUpperCase()}</b>${r.description ? '<br/>' + r.description : ''}<br/>Confirmed by ${r.verifiedCount}<br/><button style="margin-top:6px;padding:4px 8px;background:#6B21A8;color:#fff;border:none;border-radius:4px;cursor:pointer;" onclick="window.ReactNativeWebView.postMessage(JSON.stringify({type:'verify', id:'${r.id}'}))">Confirm this happened</button>`;
     return `addCustomMarker(${r.lat}, ${r.lng}, 'caution', '!', ${JSON.stringify(label)});`;
   }).join('\n');
 
-  // 2. Community Safety Check-in Pins (Green Checkmark Circles)
   const checkinPins = checkins.map((c) => {
     const label = `<b>Community Safety Check-in</b><br/>A community member marked themselves safe here.`;
     return `addCustomMarker(${c.lat}, ${c.lng}, 'safe', '', ${JSON.stringify(label)});`;
   }).join('\n');
 
-  // 3. Live Community Alerts (Amber Caution Triangles)
   const alertPins = alerts.map((a) => {
     const label = `<b>LIVE ALERT: ${a.category.replace(/_/g, ' ').toUpperCase()}</b><br/>Reported in the last 45 mins.`;
     return `addCustomMarker(${a.lat}, ${a.lng}, 'caution', '!', ${JSON.stringify(label)});`;
   }).join('\n');
 
-  // 4. Family Member Pins (Purple Circles with Initials)
   const familyPins = familyMembers.map((m) => {
     const label = `<b>${m.name || 'Family Member'}</b><br/>Live Location<br/>Last active: ${m.updatedAt ? new Date(m.updatedAt).toLocaleTimeString() : 'Recently'}`;
     return `addCustomMarker(${m.lat}, ${m.lng}, 'family', ${JSON.stringify(m.initial)}, ${JSON.stringify(label)});`;
   }).join('\n');
 
-  // 5. Active Journey Polyline (Obhoy_49)
   const routePolylineScript = routePoints.length >= 2 ? `
     const routeCoords = ${JSON.stringify(routePoints.map(p => [p.lat, p.lng]))};
     L.polyline(routeCoords, { color: '#6B21A8', weight: 4, opacity: 0.75 }).addTo(map);
@@ -102,7 +97,9 @@ function buildMapHtml(
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
   <style>
-    html, body, #map { height: 100%; margin: 0; padding: 0; }
+    html, body, #map { height: 100%; margin: 0; padding: 0; background: #F7F5FA; }
+    /* Subtle custom map styling to match the purple tint of Obhoy */
+    .leaflet-tile { filter: sepia(0.2) hue-rotate(240deg) saturate(0.5); }
   </style>
 </head>
 <body>
@@ -152,7 +149,6 @@ export default function MapScreen({ navigation }: Props) {
     const { coords } = await Location.getCurrentPositionAsync({});
     
     try {
-      // Parallel fetch: Reports, Safety Check-ins, Live Alerts, Family, and Active Journey
       const [reports, checkins, alerts, familyData, activeJourney] = await Promise.all([
         apiRequest(`/reports/nearby?lat=${coords.latitude}&lng=${coords.longitude}&radius=5`).catch(() => []),
         apiRequest(`/safety-checkins/nearby?lat=${coords.latitude}&lng=${coords.longitude}&radius=5`).catch(() => []),
@@ -171,7 +167,6 @@ export default function MapScreen({ navigation }: Props) {
           updatedAt: m.location.updatedAt,
         }));
 
-      // Calculate route line if there is an active journey with destination coordinates
       let routePoints: any[] = [];
       if (
         activeJourney && 
@@ -220,19 +215,24 @@ export default function MapScreen({ navigation }: Props) {
 
       {/* Floating Area Safety Score Overlay */}
       {areaScore && (
-        <View style={[styles.scoreOverlay, getScoreColor(areaScore.score)]}>
-          <Text style={styles.scoreLabelPrimary}>{areaScore.label}</Text>
+        <View style={styles.scoreOverlay}>
+          <View>
+            <Text style={styles.scoreTitle}>{areaScore.label}</Text>
+            <Text style={styles.scoreSubtitle}>Based on {areaScore.reportCount} recent reports</Text>
+          </View>
           {areaScore.score !== null && (
-            <Text style={styles.scoreNumberSecondary}>
-              {areaScore.score}/5 · {areaScore.reportCount} report{areaScore.reportCount === 1 ? '' : 's'}
-            </Text>
+            <View style={[styles.pill, { backgroundColor: getScoreColor(areaScore.score).bg }]}>
+              <Text style={[styles.pillText, { color: getScoreColor(areaScore.score).color }]}>
+                {areaScore.score}/5
+              </Text>
+            </View>
           )}
         </View>
       )}
 
       {/* Live Community Alert Trigger */}
       <TouchableOpacity style={styles.warnButton} onPress={() => setShowAlertPicker(true)}>
-        <Feather name="radio" size={18} color="#FFFFFF" style={{ marginRight: 6 }} />
+        <Feather name="radio" size={20} color="#FFFFFF" style={{ marginRight: 8 }} />
         <Text style={styles.warnButtonText}>Warn Nearby</Text>
       </TouchableOpacity>
 
@@ -275,90 +275,47 @@ export default function MapScreen({ navigation }: Props) {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#FFFFFF' },
+  container: { flex: 1, backgroundColor: colors.bg },
   map: { flex: 1 },
   
   scoreOverlay: { 
-    position: 'absolute', 
-    top: 16, 
-    left: 16, 
-    right: 16, 
-    borderRadius: radii.md, 
-    padding: spacing.sm + 2, 
-    alignItems: 'center', 
-    elevation: 4,
-    shadowColor: '#000',
-    shadowOpacity: 0.2,
-    shadowRadius: 4,
-    shadowOffset: { width: 0, height: 2 }
+    position: 'absolute', top: 50, left: 16, right: 16, 
+    backgroundColor: colors.cardBg, borderRadius: radii.card, 
+    padding: spacing.lg, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+    elevation: 8, shadowColor: '#000', shadowOpacity: 0.15, shadowRadius: 10, shadowOffset: { width: 0, height: 4 },
+    borderWidth: 1, borderColor: colors.border
   },
-  scoreLabelPrimary: { fontSize: 15, fontWeight: '700', color: '#FFFFFF', textAlign: 'center' },
-  scoreNumberSecondary: { fontSize: 12, color: '#FFFFFF', opacity: 0.9, marginTop: 2, textAlign: 'center' },
+  scoreTitle: { fontSize: 15, fontWeight: '800', color: colors.text },
+  scoreSubtitle: { fontSize: 13, color: colors.text2, marginTop: 2 },
+  pill: { paddingHorizontal: 11, paddingVertical: 5, borderRadius: radii.pill },
+  pillText: { fontSize: 12.5, fontWeight: '800' },
 
-  disclaimer: { 
-    fontSize: 12, 
-    color: colors.textSecondary, 
-    textAlign: 'center', 
-    marginBottom: spacing.xs, 
-    paddingHorizontal: 4, 
-    lineHeight: 16 
-  },
+  disclaimer: { fontSize: 12, color: colors.text2, textAlign: 'center', marginBottom: spacing.sm, paddingHorizontal: 4, lineHeight: 16 },
 
   fab: {
-    position: 'absolute',
-    right: 16,
-    bottom: 24,
-    width: 56,
-    height: 56,
-    borderRadius: radii.pill,
-    backgroundColor: colors.primary,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderWidth: 3,
-    borderColor: '#FFFFFF',
-    shadowColor: '#000',
-    shadowOpacity: 0.35,
-    shadowRadius: 10,
-    shadowOffset: { width: 0, height: 4 },
-    elevation: 10,
+    position: 'absolute', right: 16, bottom: 30, width: 60, height: 60, borderRadius: 30,
+    backgroundColor: colors.primary, alignItems: 'center', justifyContent: 'center',
+    borderWidth: 3, borderColor: '#FFFFFF',
+    shadowColor: colors.primary, shadowOpacity: 0.4, shadowRadius: 12, shadowOffset: { width: 0, height: 6 }, elevation: 10,
   },
 
   warnButton: { 
-    position: 'absolute', 
-    bottom: 24, 
-    left: 16, 
-    backgroundColor: colors.caution,
-    borderRadius: radii.pill, 
-    paddingVertical: 14, 
-    paddingHorizontal: 20, 
-    flexDirection: 'row',
-    alignItems: 'center',
-    borderWidth: 2,
-    borderColor: '#FFFFFF',
-    elevation: 6,
-    shadowColor: '#000',
-    shadowOpacity: 0.25,
-    shadowRadius: 6,
-    shadowOffset: { width: 0, height: 3 }
+    position: 'absolute', bottom: 30, left: 16, 
+    backgroundColor: colors.caution, borderRadius: radii.pill, 
+    paddingVertical: 14, paddingHorizontal: 20, flexDirection: 'row', alignItems: 'center',
+    borderWidth: 2, borderColor: '#FFFFFF',
+    elevation: 8, shadowColor: colors.caution, shadowOpacity: 0.3, shadowRadius: 10, shadowOffset: { width: 0, height: 5 }
   },
-  warnButtonText: { color: '#fff', fontWeight: 'bold', fontSize: 14 },
+  warnButtonText: { color: '#fff', fontWeight: '800', fontSize: 15 },
   
   pickerOverlay: { 
-    position: 'absolute', 
-    bottom: 84, 
-    left: 16, 
-    right: 16,
-    backgroundColor: '#fff', 
-    borderRadius: radii.md, 
-    padding: spacing.sm, 
-    elevation: 8,
-    shadowColor: '#000',
-    shadowOpacity: 0.25,
-    shadowRadius: 6,
-    shadowOffset: { width: 0, height: 3 }
+    position: 'absolute', bottom: 100, left: 16, right: 16,
+    backgroundColor: colors.cardBg, borderRadius: radii.md, padding: spacing.lg, 
+    elevation: 12, shadowColor: '#000', shadowOpacity: 0.3, shadowRadius: 12, shadowOffset: { width: 0, height: 6 },
+    borderWidth: 1, borderColor: colors.border
   },
-  pickerOption: { padding: 12, borderBottomWidth: 1, borderBottomColor: colors.border },
-  pickerOptionText: { color: colors.textPrimary, textTransform: 'capitalize', fontWeight: '600', fontSize: 14 },
-  pickerCancel: { padding: 10, alignItems: 'center' },
-  pickerCancelText: { color: colors.textSecondary, fontWeight: 'bold' },
+  pickerOption: { paddingVertical: 14, borderBottomWidth: 1, borderBottomColor: colors.border },
+  pickerOptionText: { color: colors.text, textTransform: 'capitalize', fontWeight: '800', fontSize: 15 },
+  pickerCancel: { paddingTop: 16, alignItems: 'center' },
+  pickerCancelText: { color: colors.text2, fontWeight: '800', fontSize: 15 },
 });

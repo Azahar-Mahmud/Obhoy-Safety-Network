@@ -1,14 +1,16 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet, Animated } from 'react-native';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import * as SecureStore from 'expo-secure-store';
 import { RootStackParamList } from '../navigation/AppNavigator';
 import { apiRequest } from '../api/client';
 import { triggerSos } from '../utils/sos';
 import { t, useLanguage } from '../i18n';
+import { Button } from '../components';
+import { colors, radii, spacing, typography } from '../theme/theme';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'SosCountdown'>;
-const COUNTDOWN_SECONDS = 5;
+const COUNTDOWN_SECONDS = 3; // Reduced to 3s to match HTML mockup
 
 export default function SosCountdownScreen({ navigation }: Props) {
   useLanguage();
@@ -27,13 +29,7 @@ export default function SosCountdownScreen({ navigation }: Props) {
       await SecureStore.setItemAsync('obhoy_contacts', JSON.stringify(contacts));
     } catch {
       const cached = await SecureStore.getItemAsync('obhoy_contacts');
-      if (cached) {
-        try {
-          contacts = JSON.parse(cached);
-        } catch {
-          contacts = [];
-        }
-      }
+      if (cached) { try { contacts = JSON.parse(cached); } catch { contacts = []; } }
     }
 
     try {
@@ -41,44 +37,45 @@ export default function SosCountdownScreen({ navigation }: Props) {
       navigation.replace('SosConfirmation', result);
     } catch (err: any) {
       navigation.replace('SosConfirmation', {
-        channel: 'failed',
-        contactsNotified: [],
+        channel: 'failed', contactsNotified: [],
         error: err.message || t('sos.channel_failed'),
       });
     }
   }, [navigation]);
 
   useEffect(() => {
-    if (secondsLeft <= 0) {
-      fireSos();
-      return;
-    }
+    if (secondsLeft <= 0) { fireSos(); return; }
     const timer = setTimeout(() => setSecondsLeft((s) => s - 1), 1000);
     return () => clearTimeout(timer);
   }, [secondsLeft, fireSos]);
 
   return (
-    <View style={styles.container}>
-      {sending ? (
-        <Text style={styles.title}>{t('sos.sent_title')}...</Text>
-      ) : (
-        <>
-          <Text style={styles.countdown}>{secondsLeft}</Text>
-          <Text style={styles.subtitle}>{t('sos.countdown', { seconds: secondsLeft })}</Text>
-          <TouchableOpacity style={styles.cancelButton} onPress={() => navigation.goBack()}>
-            <Text style={styles.cancelText}>{t('common.cancel')}</Text>
-          </TouchableOpacity>
-        </>
-      )}
+    <View style={styles.backdrop}>
+      <View style={styles.sheet}>
+        {sending ? (
+          <View style={{ alignItems: 'center', marginVertical: 40 }}>
+            <Text style={styles.title}>Sending your alert…</Text>
+            <Text style={styles.hint}>Trying every channel until one gets through</Text>
+          </View>
+        ) : (
+          <View style={{ alignItems: 'center' }}>
+            <Text style={styles.redTitle}>SENDING SOS</Text>
+            <Text style={styles.countdown}>{secondsLeft}</Text>
+            <Text style={styles.hint}>Alert goes out when this reaches zero</Text>
+            <View style={{ height: 40 }} />
+            <Button label="Cancel" variant="outline" onPress={() => navigation.goBack()} />
+          </View>
+        )}
+      </View>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#DC2626', padding: 24 },
-  title: { fontSize: 24, fontWeight: 'bold', color: '#fff', textAlign: 'center' },
-  countdown: { fontSize: 96, fontWeight: 'bold', color: '#fff' },
-  subtitle: { fontSize: 18, color: '#fff', marginTop: 8, marginBottom: 40, textAlign: 'center' },
-  cancelButton: { backgroundColor: '#fff', borderRadius: 8, paddingVertical: 14, paddingHorizontal: 40, minHeight: 48, justifyContent: 'center' },
-  cancelText: { color: '#DC2626', fontSize: 18, fontWeight: 'bold' },
+  backdrop: { flex: 1, backgroundColor: 'rgba(0,0,0,0.6)', justifyContent: 'flex-end' },
+  sheet: { backgroundColor: colors.cardBg, borderTopLeftRadius: 24, borderTopRightRadius: 24, padding: 30, elevation: 16 },
+  redTitle: { fontSize: 16, fontWeight: '800', color: colors.danger, marginTop: 10 },
+  countdown: { fontSize: 96, fontWeight: '900', color: colors.danger, lineHeight: 100, marginVertical: 20 },
+  hint: { fontSize: 14, color: colors.text2, fontWeight: '600' },
+  title: { fontSize: 20, fontWeight: '800', color: colors.text, marginBottom: 8 },
 });
