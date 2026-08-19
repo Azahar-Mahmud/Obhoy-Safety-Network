@@ -12,7 +12,7 @@ type Props = NativeStackScreenProps<RootStackParamList, 'OnboardingChoice'>;
 export default function OnboardingChoiceScreen({ navigation }: Props) {
   const skipToApp = async () => {
     await SecureStore.setItemAsync('obhoy_onboarding_completed', 'true');
-    navigation.reset({ index: 0, routes: [{ name: 'Home' }] });
+    navigation.reset({ index: 0, routes: [{ name: 'MainTabs' as any }] });
   };
 
   return (

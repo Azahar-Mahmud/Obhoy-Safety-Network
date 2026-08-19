@@ -51,21 +51,15 @@ export default function SettingsScreen() {
   useFocusEffect(
     useCallback(() => {
       apiRequest('/contacts')
-        .then((data) => {
-          if (Array.isArray(data)) setContacts(data);
-        })
+        .then((data) => { if (Array.isArray(data)) setContacts(data); })
         .catch(() => {});
 
       SecureStore.getItemAsync('obhoy_user_name')
-        .then((name) => {
-          if (name && name.trim()) setUserName(name.trim());
-        })
+        .then((name) => { if (name && name.trim()) setUserName(name.trim()); })
         .catch(() => {});
 
       SecureStore.getItemAsync('obhoy_user_phone')
-        .then((phone) => {
-          if (phone && phone.trim()) setUserPhone(phone.trim());
-        })
+        .then((phone) => { if (phone && phone.trim()) setUserPhone(phone.trim()); })
         .catch(() => {});
     }, [])
   );
@@ -123,11 +117,7 @@ export default function SettingsScreen() {
 
   return (
     <View style={[styles.container, { backgroundColor: colors.bg, paddingTop: topPadding }]}>
-      <StatusBar 
-        barStyle={isDark ? 'light-content' : 'dark-content'} 
-        backgroundColor={colors.bg} 
-        translucent 
-      />
+      <StatusBar barStyle={isDark ? 'light-content' : 'dark-content'} backgroundColor={colors.bg} translucent />
 
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
         <ScreenHeader
@@ -135,19 +125,19 @@ export default function SettingsScreen() {
           subtitle="Manage your profile, safety circle & emergency preferences."
         />
 
-        {/* 1. Profile Hero Card */}
-        <Card style={styles.profileCard}>
-          <View style={styles.profileRow}>
-            <Avatar initial={userName[0]?.toUpperCase() || 'U'} size={54} />
-            <View style={{ marginLeft: 14, flex: 1 }}>
-              <Text style={[styles.profileName, { color: colors.textPrimary }]}>{userName}</Text>
-              <Text style={[styles.profilePhone, { color: colors.textSecondary }]}>{userPhone}</Text>
+        {/* 1. Profile Hero Card (Clickable) */}
+        <Pressable onPress={() => navigation.navigate('ProfileEditor' as any)}>
+          <Card style={styles.profileCard}>
+            <View style={styles.profileRow}>
+              <Avatar initial={userName[0]?.toUpperCase() || 'U'} size={54} />
+              <View style={{ marginLeft: 14, flex: 1 }}>
+                <Text style={[styles.profileName, { color: colors.textPrimary }]}>{userName}</Text>
+                <Text style={[styles.profilePhone, { color: colors.textSecondary }]}>{userPhone}</Text>
+              </View>
+              <Feather name="chevron-right" size={20} color={colors.textSecondary} />
             </View>
-            <View style={[styles.activePill, { backgroundColor: colors.safeTint }]}>
-              <Text style={[styles.activePillText, { color: colors.safe }]}>Active</Text>
-            </View>
-          </View>
-        </Card>
+          </Card>
+        </Pressable>
 
         {/* 2. Language & Appearance */}
         <Text style={[styles.sectionHeading, { color: colors.textSecondary }]}>APPEARANCE</Text>
@@ -162,7 +152,7 @@ export default function SettingsScreen() {
           />
         </Card>
 
-        {/* 3. Safety Network (TRUSTED CONTACTS & FAMILY) */}
+        {/* 3. Safety Network */}
         <Text style={[styles.sectionHeading, { color: colors.textSecondary }]}>SAFETY NETWORK</Text>
         <Card style={styles.card}>
           <ListRow
@@ -172,9 +162,7 @@ export default function SettingsScreen() {
             right={<Feather name="chevron-right" size={18} color={colors.textSecondary} />}
             onPress={() => navigation.navigate('ContactsList')}
           />
-
           <View style={[styles.divider, { backgroundColor: colors.border }]} />
-
           {contacts.length < 5 && (
             <>
               <ListRow
@@ -187,7 +175,6 @@ export default function SettingsScreen() {
               <View style={[styles.divider, { backgroundColor: colors.border }]} />
             </>
           )}
-
           <ListRow
             title="Family Circle Hub"
             subtitle="Two-way mutual live location & battery sharing"
@@ -216,6 +203,17 @@ export default function SettingsScreen() {
             subtitle="Triggers alert without sirens, sounds, or vibrations"
             left={<Feather name="volume-x" size={20} color={colors.primary} style={styles.rowIcon} />}
             right={<Toggle value={silentModeEnabled} onChange={toggleSilentMode} />}
+          />
+
+          <View style={[styles.divider, { backgroundColor: colors.border }]} />
+
+          {/* NEW: Custom SOS Message Editor */}
+          <ListRow
+            title="SOS Message Editor"
+            subtitle="Customize the text sent during an emergency"
+            left={<Feather name="edit-3" size={20} color={colors.primary} style={styles.rowIcon} />}
+            right={<Feather name="chevron-right" size={18} color={colors.textSecondary} />}
+            onPress={() => navigation.navigate('SosMessageEditor' as any)}
           />
 
           <View style={[styles.divider, { backgroundColor: colors.border }]} />
@@ -279,9 +277,7 @@ export default function SettingsScreen() {
             right={<Feather name="chevron-right" size={18} color={colors.textSecondary} />}
             onPress={() => navigation.navigate('EvidenceGallery')}
           />
-
           <View style={[styles.divider, { backgroundColor: colors.border }]} />
-
           <ListRow
             title={t('settings.medical_card') || 'Medical ID'}
             subtitle="Blood type, allergies, emergency notes"
@@ -289,9 +285,7 @@ export default function SettingsScreen() {
             right={<Feather name="chevron-right" size={18} color={colors.textSecondary} />}
             onPress={() => navigation.navigate('MedicalCardEdit')}
           />
-
           <View style={[styles.divider, { backgroundColor: colors.border }]} />
-
           <ListRow
             title={t('sos.last_alert_title') || 'Last Alert Status'}
             subtitle="View delivery logs from your most recent SOS"
@@ -326,47 +320,17 @@ export default function SettingsScreen() {
 const styles = StyleSheet.create({
   container: { flex: 1 },
   content: { paddingHorizontal: spacing.lg, paddingBottom: 120, paddingTop: spacing.xs },
-  
-  // Profile Hero Card
   profileCard: { padding: spacing.lg, borderRadius: radii.card, marginBottom: spacing.sm },
   profileRow: { flexDirection: 'row', alignItems: 'center' },
   profileName: { fontSize: 18, fontWeight: '800' },
   profilePhone: { fontSize: 13, marginTop: 2, fontWeight: '500' },
-  activePill: { paddingHorizontal: 10, paddingVertical: 4, borderRadius: radii.pill },
-  activePillText: { fontSize: 11, fontWeight: '800' },
-
-  sectionHeading: {
-    ...typography.sectionHeading,
-    fontSize: 11.5,
-    marginBottom: spacing.xs,
-    marginTop: spacing.md,
-    letterSpacing: 0.8,
-  },
-  card: {
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.xs,
-    marginBottom: spacing.xs,
-    borderRadius: radii.card,
-  },
+  sectionHeading: { ...typography.sectionHeading, fontSize: 11.5, marginBottom: spacing.xs, marginTop: spacing.md, letterSpacing: 0.8 },
+  card: { paddingHorizontal: spacing.md, paddingVertical: spacing.xs, marginBottom: spacing.xs, borderRadius: radii.card },
   rowIcon: { marginRight: spacing.sm },
   divider: { height: 1, marginVertical: spacing.xs },
   chipRow: { flexDirection: 'row', gap: 8, paddingVertical: spacing.xs, marginBottom: spacing.xs },
-  chip: {
-    paddingVertical: 6,
-    paddingHorizontal: 14,
-    borderRadius: radii.pill,
-    minHeight: 32,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
+  chip: { paddingVertical: 6, paddingHorizontal: 14, borderRadius: radii.pill, minHeight: 32, justifyContent: 'center', alignItems: 'center' },
   chipText: { fontWeight: '700', fontSize: 13 },
-  signOutBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: spacing.lg,
-    marginTop: spacing.sm,
-    marginBottom: spacing.xl,
-  },
+  signOutBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', paddingVertical: spacing.lg, marginTop: spacing.sm, marginBottom: spacing.xl },
   signOutText: { fontSize: 15, fontWeight: '700' },
 });

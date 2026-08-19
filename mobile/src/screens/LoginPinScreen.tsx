@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, Text, TextInput, StyleSheet, ScrollView } from 'react-native';
+import { View, Text, TextInput, StyleSheet, ScrollView, Pressable } from 'react-native';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { Feather } from '@expo/vector-icons';
 import { RootStackParamList } from '../navigation/AppNavigator';
@@ -13,7 +13,7 @@ import { Button, Card, ScreenHeader } from '../components';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'LoginPin'>;
 
-export default function LoginPinScreen({ route }: Props) {
+export default function LoginPinScreen({ route, navigation }: Props) {
   useLanguage();
   const { phone } = route.params;
   const { signIn } = useAuth();
@@ -70,11 +70,20 @@ export default function LoginPinScreen({ route }: Props) {
       {error ? <Text style={styles.error}>{error}</Text> : null}
 
       <Button
-        label={loading ? 'Verifying...' : t('auth.continue')}
+        label={loading ? 'Verifying...' : t('auth.continue') || 'Continue'}
         onPress={handleLogin}
         disabled={loading || pin.length < 4}
         style={styles.continueBtn}
       />
+
+      {/* Forgot PIN Link */}
+      <Pressable 
+        onPress={() => navigation.navigate('ForgotPin', { phone })} 
+        style={styles.forgotBtn}
+        hitSlop={12}
+      >
+        <Text style={styles.forgotText}>Forgot PIN?</Text>
+      </Pressable>
     </ScrollView>
   );
 }
@@ -113,4 +122,6 @@ const styles = StyleSheet.create({
   pinHint: { fontSize: 13, color: colors.textSecondary },
   error: { color: colors.danger, marginBottom: spacing.md, textAlign: 'center', fontWeight: '600' },
   continueBtn: { marginTop: spacing.xs },
+  forgotBtn: { alignItems: 'center', marginTop: 24, paddingVertical: 12 },
+  forgotText: { color: colors.primary, fontWeight: '700', fontSize: 15 },
 });

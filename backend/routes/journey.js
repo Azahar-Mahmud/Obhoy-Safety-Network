@@ -140,7 +140,7 @@ router.patch('/:id/checkin', async (req, res) => {
   const journey = await JourneySession.findOneAndUpdate(
     { _id: req.params.id, userId: req.userId, status: 'active' },
     { lastCheckinAt: new Date() },
-    { new: true }
+    { returnDocument: 'after' } // <--- CHANGED THIS
   );
   if (!journey) return res.status(404).json({ error: 'No active journey found.' });
   res.json({ checkedIn: true, lastCheckinAt: journey.lastCheckinAt });
@@ -150,7 +150,7 @@ router.patch('/:id/arrive', async (req, res) => {
   const journey = await JourneySession.findOneAndUpdate(
     { _id: req.params.id, userId: req.userId },
     { status: 'arrived' },
-    { new: true }
+    { returnDocument: 'after' } // <--- CHANGED THIS
   );
   if (!journey) return res.status(404).json({ error: 'Journey not found.' });
   res.json({ arrived: true });
@@ -160,7 +160,7 @@ router.patch('/:id/cancel', async (req, res) => {
   const journey = await JourneySession.findOneAndUpdate(
     { _id: req.params.id, userId: req.userId },
     { status: 'cancelled' },
-    { new: true }
+    { returnDocument: 'after' } // <--- CHANGED THIS
   );
   if (!journey) return res.status(404).json({ error: 'Journey not found.' });
   res.json({ cancelled: true });

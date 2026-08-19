@@ -25,6 +25,8 @@ import PhoneEntryScreen from '../screens/PhoneEntryScreen';
 import OtpScreen from '../screens/OtpScreen';
 import SetPinScreen from '../screens/SetPinScreen';
 import LoginPinScreen from '../screens/LoginPinScreen';
+import ForgotPinScreen from '../screens/ForgotPinScreen'; // <--- NEW
+
 import ContactsListScreen from '../screens/ContactsListScreen';
 import AddContactScreen from '../screens/AddContactScreen';
 import SosCountdownScreen from '../screens/SosCountdownScreen';
@@ -48,6 +50,8 @@ import FamilyInviteScreen from '../screens/FamilyInviteScreen';
 import FamilyPrivacyScreen from '../screens/FamilyPrivacyScreen';
 import CalculatorScreen from '../screens/CalculatorScreen';
 import SettingsScreen from '../screens/SettingsScreen';
+import ProfileEditorScreen from '../screens/ProfileEditorScreen'; // <--- NEW
+import SosMessageEditorScreen from '../screens/SosMessageEditorScreen'; // <--- NEW
 import PracticeModeScreen from '../screens/PracticeModeScreen';
 import PracticeSosScreen from '../screens/PracticeSosScreen';
 import PracticeCheckinScreen from '../screens/PracticeCheckinScreen';
@@ -64,6 +68,7 @@ export type RootStackParamList = {
   Otp: { phone: string; otpWindowSeconds: number };
   SetPin: { phone: string };
   LoginPin: { phone: string };
+  ForgotPin: { phone?: string } | undefined; // <--- NEW
   ContactsList: undefined;
   AddContact: undefined;
   SosCountdown: undefined;
@@ -77,6 +82,8 @@ export type RootStackParamList = {
   ReportCategory: undefined;
   Calculator: undefined;
   Settings: undefined;
+  ProfileEditor: undefined; // <--- NEW
+  SosMessageEditor: undefined; // <--- NEW
   NearbyAlerts: undefined;
   MedicalCardEdit: undefined;
   LastAlertStatus: undefined;
@@ -131,8 +138,8 @@ export default function AppNavigator() {
     <NavigationContainer>
       <Stack.Navigator 
         screenOptions={{ 
-          headerShown: true, // Native back button & status bar clearance for all sub-screens
-          headerTitle: '',  // Keeps the top clean so the screen's own ScreenHeader shines
+          headerShown: true, 
+          headerTitle: '',  
           headerStyle: { backgroundColor: '#EFEBFA' },
           headerShadowVisible: false,
           headerTintColor: '#6B21A8',
@@ -150,10 +157,10 @@ export default function AppNavigator() {
             <Stack.Screen name="Otp" component={OtpScreen} options={{ headerShown: false }} />
             <Stack.Screen name="SetPin" component={SetPinScreen} options={{ headerShown: false }} />
             <Stack.Screen name="LoginPin" component={LoginPinScreen} options={{ headerShown: false }} />
+            <Stack.Screen name="ForgotPin" component={ForgotPinScreen} />
           </>
         ) : (
           <>
-            {/* Onboarding flow */}
             {!onboardingComplete && (
               <>
                 <Stack.Screen name="OnboardingContact" component={OnboardingContactScreen} options={{ headerShown: false }} />
@@ -162,10 +169,8 @@ export default function AppNavigator() {
               </>
             )}
 
-            {/* Main 4-Tab Navigator (Home, Map, Help, Me) */}
             <Stack.Screen name="MainTabs" component={MainTabNavigator} options={{ headerShown: false }} />
             
-            {/* Inside / Sub-Screens (All get status bar clearance + native purple back button) */}
             <Stack.Screen name="ContactsList" component={ContactsListScreen} />
             <Stack.Screen name="AddContact" component={AddContactScreen} />
             <Stack.Screen name="Family" component={FamilyScreen} />
@@ -182,6 +187,9 @@ export default function AppNavigator() {
             <Stack.Screen name="JourneySetup" component={JourneySetupScreen} />
             <Stack.Screen name="ActiveJourney" component={ActiveJourneyScreen} options={{ headerBackVisible: false }} />
             <Stack.Screen name="ReportCategory" component={ReportCategoryScreen} />
+            <Stack.Screen name="Settings" component={SettingsScreen} />
+            <Stack.Screen name="ProfileEditor" component={ProfileEditorScreen} />
+            <Stack.Screen name="SosMessageEditor" component={SosMessageEditorScreen} />
             <Stack.Screen name="OnboardingSlider" component={OnboardingSliderScreen} options={{ headerShown: false }} />
             <Stack.Screen name="MapPointPicker" component={MapPointPickerScreen} options={{ headerShown: false }} />
             <Stack.Screen name="EvidenceCapture" component={EvidenceCaptureScreen} options={{ headerShown: false }} />

@@ -37,7 +37,7 @@ export default function OnboardingSliderScreen({ navigation, route }: Props) {
       return;
     }
     await SecureStore.setItemAsync('obhoy_onboarding_completed', 'true');
-    navigation.reset({ index: 0, routes: [{ name: 'Home' }] });
+    navigation.reset({ index: 0, routes: [{ name: 'MainTabs' as any }] });
   };
 
   const goNext = () => {

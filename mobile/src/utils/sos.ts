@@ -1,13 +1,13 @@
-import { buildStatusLine, getStatusPayload } from './statusLine';
+import { getStatusPayload } from './statusLine'; 
 import { sendMeshAlert } from './meshAlert';
 import * as Location from 'expo-location';
 import * as SmsManager from 'expo-sms-manager';
 import { PermissionsAndroid, Platform } from 'react-native';
 import { apiRequest } from '../api/client';
 import { sendLanAlert } from './lanAlert';
-import { t } from '../i18n';
 import { publishKnownLocation } from './familyLocation';
-import { startAutoAudioCapture } from './autoAudioCapture'; // <--- Auto-Audio Integration (Obhoy_47)
+import { startAutoAudioCapture } from './autoAudioCapture';
+import * as SecureStore from 'expo-secure-store';
 
 export async function ensureSmsPermission(): Promise<boolean> {
   if (Platform.OS !== 'android') return true;
@@ -30,7 +30,6 @@ export type SosResult = {
   meshBroadcastSent?: boolean;
 };
 
-// Helper: 8-second timeout promise race for SOS-specific fast failover
 function withTimeout<T>(promise: Promise<T>, ms: number = 8000): Promise<T> {
   return Promise.race([
     promise,
@@ -56,14 +55,13 @@ export async function triggerSos(contacts: Contact[]): Promise<SosResult> {
     lng = lastKnown.coords.longitude;
     accuracy = lastKnown.coords.accuracy ?? 0;
   } else {
-    // Fallback if device has no cached location
     const fresh = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
     lat = fresh.coords.latitude;
     lng = fresh.coords.longitude;
     accuracy = fresh.coords.accuracy ?? 0;
   }
 
-  // Request fresh fix in background to publish if it refines (fire-and-forget)
+  // Request fresh fix in background to publish if it refines
   publishKnownLocation(lat, lng, accuracy);
   Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced })
     .then((refreshed) => {
@@ -71,12 +69,19 @@ export async function triggerSos(contacts: Contact[]): Promise<SosResult> {
     })
     .catch(() => {});
 
-  // Prepare payload & messages
+  // --- EXACT TIMESTAMP & CUSTOM MESSAGE FIX ---
   const statusPayload = await getStatusPayload().catch(() => ({}));
   const mapsLink = `https://www.google.com/maps?q=${lat},${lng}`;
-  const statusLine = await buildStatusLine().catch(() => '');
-  const smsBody = t('msg.sos_body', { link: mapsLink }) + statusLine;
-  const broadcastMsg = t('msg.sos_broadcast') + statusLine;
+  
+  const now = new Date();
+  const timeStr = now.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
+  const dateStr = now.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+  
+  const customMessage = await SecureStore.getItemAsync('obhoy_custom_sos_message') || "I am in an emergency and need immediate help.";
+
+  // Example: "[Obhoy SOS - 10:42 PM, Aug 19] \n I need help! \n\n Live tracking: https..."
+  const smsBody = `[Obhoy SOS - ${timeStr}, ${dateStr}]\n${customMessage}\n\nLive tracking: ${mapsLink}`;
+  const broadcastMsg = `Obhoy SOS Broadcast at ${timeStr}: Someone nearby needs help!`;
 
   // --- 2. TIER A: Fire Backend & Native SMS in parallel (8s timeout) ---
   const backendTask = withTimeout(
@@ -112,7 +117,6 @@ export async function triggerSos(contacts: Contact[]): Promise<SosResult> {
 
   const [backendOutcome, smsOutcome] = await Promise.allSettled([backendTask, smsTask]);
 
-  // If Backend succeeded:
   if (backendOutcome.status === 'fulfilled') {
     const data = backendOutcome.value;
     return {
@@ -121,7 +125,6 @@ export async function triggerSos(contacts: Contact[]): Promise<SosResult> {
     };
   }
 
-  // If SMS succeeded while backend failed/timed out:
   if (smsOutcome.status === 'fulfilled') {
     return {
       channel: 'native',
@@ -129,7 +132,7 @@ export async function triggerSos(contacts: Contact[]): Promise<SosResult> {
     };
   }
 
-  // --- 3. TIER B: Fallback to Offline LAN & Bluetooth Mesh (Only if Tier A failed) ---
+  // --- 3. TIER B: Fallback to Offline LAN & Bluetooth Mesh ---
   const lanTask = withTimeout(sendLanAlert(lat, lng, broadcastMsg), 8000);
   const meshTask = withTimeout(sendMeshAlert(lat, lng, broadcastMsg), 8000);
 
@@ -140,15 +143,9 @@ export async function triggerSos(contacts: Contact[]): Promise<SosResult> {
 
   const failedContacts: NotifyResult[] = contacts.map((c) => ({ name: c.name, phone: c.phone, status: 'failed' }));
 
-  if (lanSent) {
-    return { channel: 'lan', contactsNotified: failedContacts, lanBroadcastSent: true };
-  }
+  if (lanSent) return { channel: 'lan', contactsNotified: failedContacts, lanBroadcastSent: true };
+  if (meshSent) return { channel: 'mesh', contactsNotified: failedContacts, lanBroadcastSent: false, meshBroadcastSent: true };
 
-  if (meshSent) {
-    return { channel: 'mesh', contactsNotified: failedContacts, lanBroadcastSent: false, meshBroadcastSent: true };
-  }
-
-  // If everything failed
   return {
     channel: 'failed',
     contactsNotified: failedContacts,
