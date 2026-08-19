@@ -19,15 +19,14 @@ export default function OnboardingPermissionsScreen({ navigation }: Props) {
   const handleAllowPermissions = async () => {
     setRequesting(true);
     try {
-      // 1. Prime Location permission
       await Location.requestForegroundPermissionsAsync();
-      // 2. Prime native SMS permission
       await ensureSmsPermission();
     } catch (e) {
       console.warn('[PERMISSIONS] Prime error:', e);
     } finally {
       setRequesting(false);
-      navigation.navigate('OnboardingTestSos');
+      // Navigate to the choice screen
+      navigation.navigate('OnboardingChoice');
     }
   };
 
@@ -75,7 +74,7 @@ export default function OnboardingPermissionsScreen({ navigation }: Props) {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#FAFAFA' },
+  container: { flex: 1, backgroundColor: colors.bg },
   content: { padding: spacing.lg, paddingBottom: spacing.xxl, flexGrow: 1 },
   permCard: { flexDirection: 'row', alignItems: 'flex-start', padding: spacing.lg, marginBottom: spacing.md },
   iconCircle: {

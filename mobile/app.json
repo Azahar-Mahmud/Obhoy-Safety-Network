@@ -65,6 +65,12 @@
           "icon": "./assets/notification-icon.png",
           "color": "#6B21A8"
         }
+      ],
+      [
+        "expo-audio",
+        {
+          "microphonePermission": "Allow Obhoy to access your microphone to record audio evidence during an emergency."
+        }
       ]
     ]
   }

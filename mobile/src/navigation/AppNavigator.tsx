@@ -15,7 +15,9 @@ import { LanguageChosenContext } from '../context/LanguageChosenContext';
 import LanguageSelectScreen from '../screens/LanguageSelectScreen';
 import OnboardingContactScreen from '../screens/onboarding/OnboardingContactScreen';
 import OnboardingPermissionsScreen from '../screens/onboarding/OnboardingPermissionsScreen';
-import OnboardingTestSosScreen from '../screens/onboarding/OnboardingTestSosScreen';
+import OnboardingChoiceScreen from '../screens/onboarding/OnboardingChoiceScreen';
+import OnboardingSliderScreen from '../screens/onboarding/OnboardingSliderScreen';
+
 import PhoneEntryScreen from '../screens/PhoneEntryScreen';
 import OtpScreen from '../screens/OtpScreen';
 import SetPinScreen from '../screens/SetPinScreen';
@@ -52,7 +54,8 @@ export type RootStackParamList = {
   LanguageSelect: undefined;
   OnboardingContact: undefined;
   OnboardingPermissions: undefined;
-  OnboardingTestSos: undefined;
+  OnboardingChoice: undefined;
+  OnboardingSlider: { mode: 'onboarding' | 'replay' } | undefined;
   PhoneEntry: undefined;
   Otp: { phone: string; otpWindowSeconds: number };
   SetPin: { phone: string };
@@ -141,7 +144,8 @@ export default function AppNavigator() {
               <>
                 <Stack.Screen name="OnboardingContact" component={OnboardingContactScreen} />
                 <Stack.Screen name="OnboardingPermissions" component={OnboardingPermissionsScreen} />
-                <Stack.Screen name="OnboardingTestSos" component={OnboardingTestSosScreen} />
+                <Stack.Screen name="OnboardingChoice" component={OnboardingChoiceScreen} />
+                <Stack.Screen name="OnboardingSlider" component={OnboardingSliderScreen} />
               </>
             )}
             <Stack.Screen name="Home" component={HomeScreen} />
@@ -168,6 +172,8 @@ export default function AppNavigator() {
             <Stack.Screen name="PracticeMode" component={PracticeModeScreen} />
             <Stack.Screen name="PracticeSos" component={PracticeSosScreen} />
             <Stack.Screen name="PracticeCheckin" component={PracticeCheckinScreen} />
+            {/* Replay access from Practice Mode */}
+            <Stack.Screen name="OnboardingSlider" component={OnboardingSliderScreen} />
           </>
         )}
       </Stack.Navigator>
