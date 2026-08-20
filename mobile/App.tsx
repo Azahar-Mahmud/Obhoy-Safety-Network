@@ -1,4 +1,5 @@
 import './src/polyfills';
+import './src/utils/foregroundService'; // <--- 1. MUST BE IMPORTED HERE
 import React, { useEffect, useState } from 'react';
 import { AppState, AppStateStatus } from 'react-native';
 import * as SplashScreen from 'expo-splash-screen';
@@ -7,8 +8,9 @@ import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { recordLastActive } from './src/utils/lastActive';
 import { loadLanguage } from './src/i18n';
 import { publishLocation } from './src/utils/familyLocation';
+import { autoStartForegroundIfEnabled } from './src/utils/foregroundService'; // <--- 2. Import auto-start
 
-import { ThemeProvider } from './src/context/ThemeContext'; // <--- ThemeProvider
+import { ThemeProvider } from './src/context/ThemeContext';
 import { LanguageChosenContext } from './src/context/LanguageChosenContext';
 import { SilentModeProvider } from './src/context/SilentModeContext';
 import { FallDetectionProvider } from './src/context/FallDetectionContext';
@@ -22,6 +24,7 @@ import IntroScreen from './src/screens/IntroScreen';
 
 SplashScreen.preventAutoHideAsync().catch(() => {});
 
+// ... (StartupGate function remains exactly the same) ...
 function StartupGate() {
   const { discreetModeEnabled, isLoading } = useDiscreetMode();
   const [showIntro, setShowIntro] = useState(true);
@@ -38,7 +41,6 @@ function StartupGate() {
 
   if (isLoading) return null;
   if (showIntro && !discreetModeEnabled) return <IntroScreen />;
-  
   return <AppNavigator />;
 }
 
@@ -51,6 +53,9 @@ export default function App() {
       try {
         const lang = await loadLanguage();
         setLanguageChosen(lang !== null);
+        
+        // 3. Automatically restart the Foreground Service if it was previously enabled
+        await autoStartForegroundIfEnabled();
       } catch (e) {
         console.warn('Startup init error:', e);
       } finally {
@@ -61,6 +66,7 @@ export default function App() {
     prepare();
   }, []);
 
+  // ... (Rest of App.tsx remains exactly the same) ...
   useEffect(() => {
     recordLastActive();
     publishLocation();
@@ -78,9 +84,7 @@ export default function App() {
   return (
     <SafeAreaProvider>
       <ThemeProvider>
-        <LanguageChosenContext.Provider
-          value={{ chosen: languageChosen, markChosen: () => setLanguageChosen(true) }}
-        >
+        <LanguageChosenContext.Provider value={{ chosen: languageChosen, markChosen: () => setLanguageChosen(true) }}>
           <AuthProvider>
             <DiscreetModeProvider>
               <SimpleModeProvider>

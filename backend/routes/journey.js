@@ -49,15 +49,20 @@ router.post('/start', async (req, res) => {
       geofenceCenter: geofenceEnabled && typeof lat === 'number' ? { lat, lng } : undefined,
     });
     
-    // --- UPDATED SMS SENDING BLOCK ---
-    const trackUrl = `${process.env.WEB_TRACKER_URL}/${trackingToken}`;
+    // --- BYPASS CARRIER SPAM FILTERS ---
+    // Remove https:// so the telecom doesn't flag it as a spam link
+    const rawUrl = process.env.WEB_TRACKER_URL.replace(/^https?:\/\//, '');
+    const trackUrl = `${rawUrl}/${trackingToken}`;
+    
     const contacts = await TrustedContact.find({ userId: req.userId });
     const user = await User.findById(req.userId);
     
     console.log(`[JOURNEY] Starting journey for ${user.phone}. Found ${contacts.length} trusted contacts.`);
 
     if (contacts.length > 0) {
-      const startMessage = `Obhoy: ${user.phone} started a journey${destinationLabel ? ' to ' + destinationLabel : ''}. Track: ${trackUrl}`;
+      // Added random ID at the end so the telecom doesn't block duplicate messages
+      const randomSalt = Math.floor(Math.random() * 10000);
+      const startMessage = `Obhoy Alert: ${user.phone} started a journey${destinationLabel ? ' to ' + destinationLabel : ''}. Track here: ${trackUrl} (ID:${randomSalt})`;
       
       for (const contact of contacts) {
         try {
@@ -68,7 +73,7 @@ router.post('/start', async (req, res) => {
         }
       }
     }
-    // ---------------------------------
+    // -----------------------------------
 
     res.json({ journeyId: journey._id, trackingToken, trackUrl, checkinIntervalMinutes: journey.checkinIntervalMinutes });
   } catch (err) {

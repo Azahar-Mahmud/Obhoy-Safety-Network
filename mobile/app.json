@@ -33,10 +33,17 @@
         "BLUETOOTH_CONNECT",
         "NEARBY_WIFI_DEVICES",
         "ACCESS_FINE_LOCATION",
+        "ACCESS_COARSE_LOCATION",
+        "ACCESS_BACKGROUND_LOCATION",
         "VIBRATE",
         "REQUEST_IGNORE_BATTERY_OPTIMIZATIONS",
         "CAMERA",
-        "RECORD_AUDIO"
+        "RECORD_AUDIO",
+        "WAKE_LOCK",
+        "USE_FULL_SCREEN_INTENT",
+        "SYSTEM_ALERT_WINDOW",
+        "FOREGROUND_SERVICE",
+        "FOREGROUND_SERVICE_LOCATION"
       ]
     },
     "web": {

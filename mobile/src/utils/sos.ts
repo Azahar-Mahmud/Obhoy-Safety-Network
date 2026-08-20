@@ -71,16 +71,19 @@ export async function triggerSos(contacts: Contact[]): Promise<SosResult> {
 
   // --- EXACT TIMESTAMP & CUSTOM MESSAGE FIX ---
   const statusPayload = await getStatusPayload().catch(() => ({}));
-  const mapsLink = `https://www.google.com/maps?q=${lat},${lng}`;
+  
+  // STRIP HTTPS:// TO BYPASS TELECOM SPAM FILTERS
+  const mapsLink = `google.com/maps?q=${lat},${lng}`;
   
   const now = new Date();
   const timeStr = now.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
   const dateStr = now.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+  const randomId = Math.floor(Math.random() * 10000); // Random salt to prevent duplicate blocking
   
   const customMessage = await SecureStore.getItemAsync('obhoy_custom_sos_message') || "I am in an emergency and need immediate help.";
 
-  // Example: "[Obhoy SOS - 10:42 PM, Aug 19] \n I need help! \n\n Live tracking: https..."
-  const smsBody = `[Obhoy SOS - ${timeStr}, ${dateStr}]\n${customMessage}\n\nLive tracking: ${mapsLink}`;
+  // Final Formatted Body without https://
+  const smsBody = `[Obhoy SOS - ${timeStr}, ${dateStr}]\n${customMessage}\n\nLive tracking: ${mapsLink} \n(ID:${randomId})`;
   const broadcastMsg = `Obhoy SOS Broadcast at ${timeStr}: Someone nearby needs help!`;
 
   // --- 2. TIER A: Fire Backend & Native SMS in parallel (8s timeout) ---

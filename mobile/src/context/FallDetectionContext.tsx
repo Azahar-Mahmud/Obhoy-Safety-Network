@@ -15,23 +15,48 @@ const FallDetectionContext = createContext<FallDetectionContextType | undefined>
 
 export function FallDetectionProvider({ children }: { children: React.ReactNode }) {
   const [phase, setPhase] = useState<Phase>('idle');
-  const startedRef = useRef(false);
+  
+  // Track the current active configuration
+  const configRef = useRef({ enabled: false, sensitivity: '' });
 
   useEffect(() => {
-    if (startedRef.current) return;
-    startedRef.current = true;
+    const triggerFall = () => setPhase('countdown');
 
-    (async () => {
-      const enabled = (await SecureStore.getItemAsync('obhoy_fall_detection_enabled')) === 'true';
-      if (!enabled) return;
-      
-      const sensitivity = ((await SecureStore.getItemAsync('obhoy_fall_sensitivity')) || 'medium') as Sensitivity;
-      
-      // If a fall happens, move from 'idle' to 'countdown'
-      startFallDetection(sensitivity, () => setPhase('countdown'));
-    })();
+    const syncSettings = async () => {
+      try {
+        const enabledStr = await SecureStore.getItemAsync('obhoy_fall_detection_enabled');
+        const sensStr = (await SecureStore.getItemAsync('obhoy_fall_sensitivity')) || 'medium';
+        const isEnabled = enabledStr === 'true';
 
-    return () => stopFallDetection();
+        // If nothing changed, do nothing
+        if (configRef.current.enabled === isEnabled && configRef.current.sensitivity === sensStr) {
+          return;
+        }
+
+        // Settings changed! Stop the old listener and start the new one
+        stopFallDetection();
+
+        if (isEnabled) {
+          startFallDetection(sensStr as Sensitivity, triggerFall);
+          console.log(`[FALL DETECT] Armed. Sensitivity: ${sensStr}`);
+        } else {
+          console.log('[FALL DETECT] Disarmed.');
+        }
+
+        configRef.current = { enabled: isEnabled, sensitivity: sensStr };
+      } catch (err) {}
+    };
+
+    // 1. Check immediately on boot
+    syncSettings();
+
+    // 2. Poll every 2.5 seconds to instantly catch any toggles flipped in SettingsScreen
+    const interval = setInterval(syncSettings, 2500);
+
+    return () => {
+      clearInterval(interval);
+      stopFallDetection();
+    };
   }, []);
 
   return (

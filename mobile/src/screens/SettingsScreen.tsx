@@ -5,6 +5,7 @@ import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as SecureStore from 'expo-secure-store';
 import { Feather } from '@expo/vector-icons';
+import { startForegroundProtection, stopForegroundProtection } from '../utils/foregroundService';
 
 import { RootStackParamList } from '../navigation/AppNavigator';
 import { useAuth } from '../context/AuthContext';
@@ -47,6 +48,9 @@ export default function SettingsScreen() {
   const [sensitivity, setSensitivity] = useState<'low' | 'medium' | 'high'>('medium');
   const [audioOn, setAudioOn] = useState(false);
   const [audioLength, setAudioLength] = useState(60);
+  
+  // Foreground Protection State
+  const [foregroundOn, setForegroundOn] = useState(false);
 
   useFocusEffect(
     useCallback(() => {
@@ -71,6 +75,9 @@ export default function SettingsScreen() {
     }).catch(() => {});
     isAutoAudioEnabled().then(setAudioOn).catch(() => {});
     getAutoAudioLengthSeconds().then(setAudioLength).catch(() => {});
+    
+    // Load foreground protection state
+    SecureStore.getItemAsync('obhoy_foreground_enabled').then((v) => setForegroundOn(v === 'true')).catch(() => {});
   }, []);
 
   const handleDiscreetToggle = (value: boolean) => {
@@ -113,6 +120,17 @@ export default function SettingsScreen() {
   const handleAudioLength = async (seconds: number) => {
     setAudioLength(seconds);
     await SecureStore.setItemAsync(AUTO_AUDIO_LENGTH_KEY, String(seconds));
+  };
+
+  // Foreground Protection Toggle Logic
+  const handleForegroundToggle = async (value: boolean) => {
+    setForegroundOn(value);
+    if (value) {
+      const success = await startForegroundProtection();
+      if (!success) setForegroundOn(false); // Revert if permission denied
+    } else {
+      await stopForegroundProtection();
+    }
   };
 
   return (
@@ -198,6 +216,16 @@ export default function SettingsScreen() {
         {/* 5. Emergency SOS Automations */}
         <Text style={[styles.sectionHeading, { color: colors.textSecondary }]}>EMERGENCY AUTOMATIONS</Text>
         <Card style={styles.card}>
+          
+          {/* NEW: Foreground Protection Toggle */}
+          <ListRow
+            title="Always-On Background Protection"
+            subtitle="Defeats battery savers to keep Fall Detection & SOS awake 24/7"
+            left={<Feather name="shield" size={20} color={colors.primary} style={styles.rowIcon} />}
+            right={<Toggle value={foregroundOn} onChange={handleForegroundToggle} />}
+          />
+          <View style={[styles.divider, { backgroundColor: colors.border }]} />
+
           <ListRow
             title="Silent SOS Mode"
             subtitle="Triggers alert without sirens, sounds, or vibrations"
@@ -207,7 +235,6 @@ export default function SettingsScreen() {
 
           <View style={[styles.divider, { backgroundColor: colors.border }]} />
 
-          {/* NEW: Custom SOS Message Editor */}
           <ListRow
             title="SOS Message Editor"
             subtitle="Customize the text sent during an emergency"
@@ -320,17 +347,44 @@ export default function SettingsScreen() {
 const styles = StyleSheet.create({
   container: { flex: 1 },
   content: { paddingHorizontal: spacing.lg, paddingBottom: 120, paddingTop: spacing.xs },
+  
   profileCard: { padding: spacing.lg, borderRadius: radii.card, marginBottom: spacing.sm },
   profileRow: { flexDirection: 'row', alignItems: 'center' },
   profileName: { fontSize: 18, fontWeight: '800' },
   profilePhone: { fontSize: 13, marginTop: 2, fontWeight: '500' },
-  sectionHeading: { ...typography.sectionHeading, fontSize: 11.5, marginBottom: spacing.xs, marginTop: spacing.md, letterSpacing: 0.8 },
-  card: { paddingHorizontal: spacing.md, paddingVertical: spacing.xs, marginBottom: spacing.xs, borderRadius: radii.card },
+
+  sectionHeading: {
+    ...typography.sectionHeading,
+    fontSize: 11.5,
+    marginBottom: spacing.xs,
+    marginTop: spacing.md,
+    letterSpacing: 0.8,
+  },
+  card: {
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.xs,
+    marginBottom: spacing.xs,
+    borderRadius: radii.card,
+  },
   rowIcon: { marginRight: spacing.sm },
   divider: { height: 1, marginVertical: spacing.xs },
   chipRow: { flexDirection: 'row', gap: 8, paddingVertical: spacing.xs, marginBottom: spacing.xs },
-  chip: { paddingVertical: 6, paddingHorizontal: 14, borderRadius: radii.pill, minHeight: 32, justifyContent: 'center', alignItems: 'center' },
+  chip: {
+    paddingVertical: 6,
+    paddingHorizontal: 14,
+    borderRadius: radii.pill,
+    minHeight: 32,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
   chipText: { fontWeight: '700', fontSize: 13 },
-  signOutBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', paddingVertical: spacing.lg, marginTop: spacing.sm, marginBottom: spacing.xl },
+  signOutBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: spacing.lg,
+    marginTop: spacing.sm,
+    marginBottom: spacing.xl,
+  },
   signOutText: { fontSize: 15, fontWeight: '700' },
 });
