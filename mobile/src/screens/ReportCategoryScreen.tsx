@@ -1,11 +1,11 @@
-import React, { useState, useRef } from 'react';
-import { ScrollView, View, Text, StyleSheet, Pressable, Animated } from 'react-native';
+import React, { useState, useRef, useEffect } from 'react';
+import { ScrollView, View, Text, StyleSheet, Pressable } from 'react-native';
 import { Feather } from '@expo/vector-icons';
 import * as Location from 'expo-location';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../navigation/AppNavigator';
 
-import { ScreenHeader } from '../components';
+import { ScreenHeader, ListRow, Card } from '../components';
 import { colors, spacing, typography, radii } from '../theme/theme';
 import { apiRequest } from '../api/client';
 import { broadcastSafeCheckin } from '../utils/safetyCheckin';
@@ -14,23 +14,32 @@ import { t, useLanguage } from '../i18n';
 type Props = NativeStackScreenProps<RootStackParamList, 'ReportCategory'>;
 
 const CATEGORIES = [
-  { id: 'harassment', label: 'Harassment', icon: 'frown' as const },
-  { id: 'poor_lighting', label: 'Poor Lighting', icon: 'moon' as const },
-  { id: 'unsafe_area', label: 'Unsafe Area', icon: 'alert-triangle' as const },
-  { id: 'being_followed', label: 'Being Followed', icon: 'eye' as const },
-  { id: 'other', label: 'Other Incident', icon: 'more-horizontal' as const },
+  { id: 'harassment', label: 'Harassment', icon: 'frown' as const, color: colors.danger },
+  { id: 'mugging', label: 'Mugging / Robbery', icon: 'alert-octagon' as const, color: colors.danger },
+  { id: 'checkpost_harassment', label: 'Checkpost Harassment', icon: 'shield-off' as const, color: colors.danger },
+  { id: 'poor_lighting', label: 'Poor Lighting', icon: 'moon' as const, color: colors.caution },
+  { id: 'safe_spot', label: 'Safe Spot', icon: 'check-circle' as const, color: colors.safe },
 ];
 
 const UNDO_WINDOW_MS = 6000;
 
-export default function ReportCategoryScreen({ navigation }: Props) {
+export default function ReportCategoryScreen({ navigation, route }: Props) {
   useLanguage();
+  const [reportCoords, setReportCoords] = useState<{ lat: number; lng: number } | null>(null);
   const [toast, setToast] = useState<{ label: string; reportId: string } | null>(null);
   const undoTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  // Hold-to-fill Animation State for "Mark Calm"
-  const [isHolding, setIsHolding] = useState(false);
-  const fillAnim = useRef(new Animated.Value(0)).current;
+  useEffect(() => {
+    if (route.params?.lat != null && route.params?.lng != null) {
+      setReportCoords({ lat: route.params.lat, lng: route.params.lng });
+    } else {
+      Location.getLastKnownPositionAsync()
+        .then((last) => {
+          if (last) setReportCoords({ lat: last.coords.latitude, lng: last.coords.longitude });
+        })
+        .catch(() => {});
+    }
+  }, [route.params]);
 
   const showToast = (label: string, reportId: string) => {
     setToast({ label, reportId });
@@ -38,14 +47,34 @@ export default function ReportCategoryScreen({ navigation }: Props) {
     undoTimer.current = setTimeout(() => setToast(null), UNDO_WINDOW_MS);
   };
 
+  const openMapPicker = () => {
+    navigation.navigate('MapPointPicker', {
+      title: 'Select Report Location',
+      initialLat: reportCoords?.lat ?? 23.8103,
+      initialLng: reportCoords?.lng ?? 90.4125,
+      targetField: 'report',
+    });
+  };
+
   const submitReport = async (categoryId: string, categoryLabel: string) => {
     try {
-      let loc = await Location.getLastKnownPositionAsync().catch(() => null);
-      if (!loc) loc = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
+      let lat = reportCoords?.lat;
+      let lng = reportCoords?.lng;
+
+      if (lat == null || lng == null) {
+        const fresh = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
+        lat = fresh.coords.latitude;
+        lng = fresh.coords.longitude;
+      }
 
       const result = await apiRequest('/reports', {
         method: 'POST',
-        body: JSON.stringify({ category: categoryId, lat: loc.coords.latitude, lng: loc.coords.longitude, description: '' }),
+        body: JSON.stringify({
+          category: categoryId,
+          lat,
+          lng,
+          description: '',
+        }),
       });
 
       showToast(`Reported: ${categoryLabel}`, result.id);
@@ -59,81 +88,80 @@ export default function ReportCategoryScreen({ navigation }: Props) {
     if (undoTimer.current) clearTimeout(undoTimer.current);
     const idToDelete = toast.reportId;
     setToast(null);
-    try { await apiRequest(`/reports/${idToDelete}`, { method: 'DELETE' }); } catch {}
+
+    try {
+      await apiRequest(`/reports/${idToDelete}`, { method: 'DELETE' });
+    } catch {}
   };
 
   const markAreaCalm = async () => {
-    const result = await broadcastSafeCheckin();
-    if (result.channel !== 'failed') showToast('Marked area as calm & safe', '');
-    else showToast('Could not check in right now', '');
+    const result = await broadcastSafeCheckin(reportCoords?.lat, reportCoords?.lng);
+    if (result.channel !== 'failed') {
+      showToast('Marked selected area as calm & safe', '');
+    } else {
+      showToast('Could not check in right now', '');
+    }
   };
-
-  // Radial Fill Logic
-  const handlePressIn = () => {
-    setIsHolding(true);
-    Animated.timing(fillAnim, { toValue: 1, duration: 1000, useNativeDriver: false }).start(({ finished }) => {
-      if (finished) { markAreaCalm(); resetAnim(); }
-    });
-  };
-  const handlePressOut = () => { if (isHolding) resetAnim(); };
-  const resetAnim = () => {
-    setIsHolding(false);
-    Animated.timing(fillAnim, { toValue: 0, duration: 200, useNativeDriver: false }).start();
-  };
-  const fillWidth = fillAnim.interpolate({ inputRange: [0, 1], outputRange: ['0%', '100%'] });
 
   return (
     <View style={styles.container}>
       <ScrollView contentContainerStyle={styles.content}>
-        <ScreenHeader title="What happened?" subtitle="Tap to report instantly at your location. You have 6 seconds to undo." />
+        <ScreenHeader 
+          title="What happened?" 
+          subtitle="Tap a category to report at the selected location. You have 6s to undo." 
+        />
 
-        {/* Vertical Stack of RepCards */}
-        <View style={styles.reportStack}>
-          {CATEGORIES.map((cat) => (
-            <Pressable key={cat.id} style={styles.repCard} android_ripple={{ color: colors.ripple }} onPress={() => submitReport(cat.id, cat.label)}>
-              <View style={styles.ricon}>
-                <Feather name={cat.icon} size={22} color={colors.primary} />
+        {/* 1. Target Location Card */}
+        <Pressable onPress={openMapPicker}>
+          <Card style={styles.locationCard}>
+            <View style={styles.locationRow}>
+              <Feather name="map-pin" size={20} color={colors.primary} />
+              <View style={{ marginLeft: 10, flex: 1 }}>
+                <Text style={styles.locationLabel}>TARGET LOCATION</Text>
+                <Text style={styles.locationCoords}>
+                  {reportCoords ? `${reportCoords.lat.toFixed(4)}, ${reportCoords.lng.toFixed(4)}` : 'Detecting GPS...'}
+                </Text>
               </View>
-              <Text style={styles.rlabel}>{cat.label}</Text>
-            </Pressable>
+              <Text style={styles.changeLocationText}>Change on Map ›</Text>
+            </View>
+          </Card>
+        </Pressable>
+
+        {/* 2. Category Stack */}
+        <Card>
+          {CATEGORIES.map((cat, index) => (
+            <React.Fragment key={cat.id}>
+              <ListRow
+                title={cat.label}
+                left={<Feather name={cat.icon} size={24} color={cat.color} style={styles.categoryIcon} />}
+                right={<Feather name="chevron-right" size={18} color={colors.textSecondary} />}
+                onPress={() => submitReport(cat.id, cat.label)}
+              />
+              {index < CATEGORIES.length - 1 && <View style={styles.divider} />}
+            </React.Fragment>
           ))}
-        </View>
+        </Card>
 
-        <Text style={typography.sectionHeading}>More ways to help</Text>
-        
-        <Pressable style={styles.actionCard} android_ripple={{ color: colors.ripple }} onPress={() => navigation.navigate('Map')}>
-          <View style={styles.row}>
-            <Feather name="radio" size={24} color={colors.caution} style={{ marginRight: 14 }} />
-            <View>
-              <Text style={styles.actionTitle}>Broadcast alert nearby</Text>
-              <Text style={styles.actionHint}>Alerts users within 1km.{'\n'}<Text style={{ color: colors.danger, fontWeight: '700' }}>Does NOT contact police.</Text></Text>
-            </View>
-          </View>
-        </Pressable>
-
-        <Pressable 
-          style={styles.actionCard} 
-          onPressIn={handlePressIn} 
-          onPressOut={handlePressOut}
-        >
-          <Animated.View style={[styles.holdFill, { width: fillWidth }]} />
-          <View style={[styles.row, { zIndex: 2 }]}>
-            <Feather name="shield" size={24} color={colors.safe} style={{ marginRight: 14 }} />
-            <View>
-              <Text style={styles.actionTitle}>Mark area as calm</Text>
-              <Text style={styles.actionHint}>Press & hold to confirm</Text>
-            </View>
-          </View>
-        </Pressable>
+        {/* 3. Community Calm Action */}
+        <Text style={styles.sectionHeading}>Community Check-in</Text>
+        <Card>
+          <ListRow
+            title="Mark area as calm"
+            subtitle="Hold for 1s to confirm safety at this location"
+            left={<Feather name="shield" size={24} color={colors.safe} style={styles.categoryIcon} />}
+            onLongPress={markAreaCalm}
+            delayLongPress={900}
+          />
+        </Card>
       </ScrollView>
 
-      {/* Custom Floating Toast */}
+      {/* Floating 6s Undo Toast */}
       {toast && (
         <View style={styles.toast}>
           <Text style={styles.toastLabel}>{toast.label}</Text>
           {toast.reportId ? (
             <Pressable onPress={undoReport} style={styles.undoButton}>
-              <Text style={styles.toastUndo}>Undo</Text>
+              <Text style={styles.toastUndo}>Undo (6s)</Text>
             </Pressable>
           ) : null}
         </View>
@@ -143,32 +171,34 @@ export default function ReportCategoryScreen({ navigation }: Props) {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: colors.bg },
-  content: { padding: spacing.xl, paddingBottom: 100 },
-  row: { flexDirection: 'row', alignItems: 'center' },
-  
-  reportStack: { flexDirection: 'column', gap: 10, marginTop: 14, marginBottom: 24 },
-  repCard: {
-    borderWidth: 1.5, borderColor: colors.border, borderRadius: radii.lg, padding: 12, paddingHorizontal: 16,
-    flexDirection: 'row', alignItems: 'center', gap: 14, backgroundColor: colors.cardBg,
-  },
-  ricon: { width: 42, height: 42, borderRadius: 12, backgroundColor: colors.primaryLight, alignItems: 'center', justifyContent: 'center', flexShrink: 0 },
-  rlabel: { fontSize: 15, fontWeight: '800', flex: 1, color: colors.text },
-
-  actionCard: {
-    borderWidth: 1, borderColor: colors.border, borderRadius: radii.card, padding: 16, backgroundColor: colors.cardBg,
-    marginBottom: 12, overflow: 'hidden', position: 'relative'
-  },
-  actionTitle: { fontWeight: '800', fontSize: 14.5, color: colors.text },
-  actionHint: { fontSize: 13, color: colors.text2, marginTop: 2 },
-  holdFill: { position: 'absolute', left: 0, top: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.1)' },
-
+  container: { flex: 1, backgroundColor: '#FAFAFA' },
+  content: { padding: spacing.lg, paddingBottom: 120 },
+  locationCard: { backgroundColor: colors.primaryLight, borderColor: colors.primary, padding: spacing.md, marginBottom: spacing.md },
+  locationRow: { flexDirection: 'row', alignItems: 'center' },
+  locationLabel: { fontSize: 11, fontWeight: '800', color: colors.primary, letterSpacing: 0.8 },
+  locationCoords: { fontSize: 14, fontWeight: '700', color: colors.textPrimary, marginTop: 1 },
+  changeLocationText: { fontSize: 12, fontWeight: '800', color: colors.primary },
+  categoryIcon: { marginRight: spacing.sm },
+  divider: { height: 1, backgroundColor: colors.border, marginVertical: spacing.xs },
+  sectionHeading: { ...typography.sectionHeading, color: colors.textSecondary, fontSize: 13, marginTop: spacing.md, marginBottom: spacing.xs, letterSpacing: 0.5 },
   toast: {
-    position: 'absolute', left: 16, right: 16, bottom: 40, backgroundColor: '#111827',
-    borderRadius: 14, padding: 14, paddingHorizontal: 16, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-    elevation: 10, shadowColor: '#000', shadowOpacity: 0.3, shadowRadius: 10, shadowOffset: { width: 0, height: 5 },
+    position: 'absolute',
+    left: spacing.lg,
+    right: spacing.lg,
+    bottom: 90,
+    backgroundColor: '#111827',
+    borderRadius: radii.md,
+    padding: spacing.md,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    elevation: 8,
+    shadowColor: '#000',
+    shadowOpacity: 0.25,
+    shadowRadius: 8,
+    shadowOffset: { width: 0, height: 4 },
   },
   toastLabel: { color: '#FFFFFF', fontWeight: '600', fontSize: 14, flex: 1 },
-  undoButton: { backgroundColor: 'rgba(255,255,255,0.2)', paddingHorizontal: 12, paddingVertical: 6, borderRadius: 8 },
-  toastUndo: { color: '#FFFFFF', fontWeight: '700', fontSize: 13 },
+  undoButton: { paddingHorizontal: 12, paddingVertical: 4 },
+  toastUndo: { color: '#FDE047', fontWeight: '800', fontSize: 14 },
 });

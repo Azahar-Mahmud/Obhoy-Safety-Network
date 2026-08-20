@@ -25,7 +25,7 @@ import PhoneEntryScreen from '../screens/PhoneEntryScreen';
 import OtpScreen from '../screens/OtpScreen';
 import SetPinScreen from '../screens/SetPinScreen';
 import LoginPinScreen from '../screens/LoginPinScreen';
-import ForgotPinScreen from '../screens/ForgotPinScreen'; // <--- NEW
+import ForgotPinScreen from '../screens/ForgotPinScreen';
 
 import ContactsListScreen from '../screens/ContactsListScreen';
 import AddContactScreen from '../screens/AddContactScreen';
@@ -50,8 +50,8 @@ import FamilyInviteScreen from '../screens/FamilyInviteScreen';
 import FamilyPrivacyScreen from '../screens/FamilyPrivacyScreen';
 import CalculatorScreen from '../screens/CalculatorScreen';
 import SettingsScreen from '../screens/SettingsScreen';
-import ProfileEditorScreen from '../screens/ProfileEditorScreen'; // <--- NEW
-import SosMessageEditorScreen from '../screens/SosMessageEditorScreen'; // <--- NEW
+import ProfileEditorScreen from '../screens/ProfileEditorScreen';
+import SosMessageEditorScreen from '../screens/SosMessageEditorScreen';
 import PracticeModeScreen from '../screens/PracticeModeScreen';
 import PracticeSosScreen from '../screens/PracticeSosScreen';
 import PracticeCheckinScreen from '../screens/PracticeCheckinScreen';
@@ -68,22 +68,24 @@ export type RootStackParamList = {
   Otp: { phone: string; otpWindowSeconds: number };
   SetPin: { phone: string };
   LoginPin: { phone: string };
-  ForgotPin: { phone?: string } | undefined; // <--- NEW
+  ForgotPin: { phone?: string } | undefined;
   ContactsList: undefined;
   AddContact: undefined;
   SosCountdown: undefined;
   SosConfirmation: { channel: string; contactsNotified: any[]; error?: string; };
   JourneySetup: { pickedLat?: number; pickedLng?: number; targetField?: 'from' | 'to'; } | undefined;
-  MapPointPicker: { title: string; initialLat?: number; initialLng?: number; targetField: 'from' | 'to'; };
+  // --- UPDATED: targetField includes 'report' ---
+  MapPointPicker: { title: string; initialLat?: number; initialLng?: number; targetField: 'from' | 'to' | 'report'; };
   ActiveJourney: { journeyId: string; checkinIntervalMinutes: number; mode?: 'interval' | 'scheduled'; scheduledDeadline?: string; };
   Directory: undefined;
   AppGuide: undefined;
   Map: undefined;
-  ReportCategory: undefined;
+  // --- UPDATED: ReportCategory accepts optional coordinates ---
+  ReportCategory: { lat?: number; lng?: number; } | undefined;
   Calculator: undefined;
   Settings: undefined;
-  ProfileEditor: undefined; // <--- NEW
-  SosMessageEditor: undefined; // <--- NEW
+  ProfileEditor: undefined;
+  SosMessageEditor: undefined;
   NearbyAlerts: undefined;
   MedicalCardEdit: undefined;
   LastAlertStatus: undefined;
@@ -161,6 +163,7 @@ export default function AppNavigator() {
           </>
         ) : (
           <>
+            {/* Onboarding flow */}
             {!onboardingComplete && (
               <>
                 <Stack.Screen name="OnboardingContact" component={OnboardingContactScreen} options={{ headerShown: false }} />
@@ -169,8 +172,10 @@ export default function AppNavigator() {
               </>
             )}
 
+            {/* Main 4-Tab Navigator (Home, Map, Help, Me) */}
             <Stack.Screen name="MainTabs" component={MainTabNavigator} options={{ headerShown: false }} />
             
+            {/* Sub-Screens */}
             <Stack.Screen name="ContactsList" component={ContactsListScreen} />
             <Stack.Screen name="AddContact" component={AddContactScreen} />
             <Stack.Screen name="Family" component={FamilyScreen} />

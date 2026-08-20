@@ -135,7 +135,6 @@ export default function MapScreen({ navigation }: Props) {
   const [areaScore, setAreaScore] = useState<{ score: number | null; label: string; reportCount: number } | null>(null);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  // Status bar clearance offset
   const topOverlayOffset = Platform.OS === 'android' 
     ? Math.max(insets.top, (StatusBar.currentHeight || 28)) + 12
     : Math.max(insets.top, 24);
@@ -221,6 +220,7 @@ export default function MapScreen({ navigation }: Props) {
         await apiRequest(`/reports/${data.id}/verify`, { method: 'POST' }).catch(() => {});
         loadMapData(coords.latitude, coords.longitude);
       } else if (data.type === 'mapMoved') {
+        setCoords({ latitude: data.lat, longitude: data.lng });
         if (debounceRef.current) clearTimeout(debounceRef.current);
         debounceRef.current = setTimeout(() => fetchAreaScore(data.lat, data.lng), 600);
       }
@@ -238,7 +238,7 @@ export default function MapScreen({ navigation }: Props) {
         onMessage={handleMessage} 
       />
 
-      {/* Floating Area Safety Score Overlay (Safely Offset Below Status Bar) */}
+      {/* Floating Area Safety Score Overlay */}
       {areaScore && (
         <View style={[styles.scoreOverlay, getScoreColor(areaScore.score), { top: topOverlayOffset }]}>
           <Text style={styles.scoreLabelPrimary}>{areaScore.label}</Text>
@@ -269,7 +269,7 @@ export default function MapScreen({ navigation }: Props) {
               style={styles.pickerOption}
               onPress={async () => {
                 setShowAlertPicker(false);
-                const result = await broadcastCommunityAlert(category);
+                const result = await broadcastCommunityAlert(category, coords.latitude, coords.longitude);
                 Alert.alert(
                   'Sent',
                   result.channel === 'failed' ? 'Could not broadcast right now.' : 'Nearby users warned.'
@@ -286,8 +286,14 @@ export default function MapScreen({ navigation }: Props) {
         </View>
       )}
 
-      {/* High-Contrast FAB */}
-      <Pressable style={styles.fab} onPress={() => navigation.navigate('ReportCategory')}>
+      {/* High-Contrast FAB: Passes current map center coordinates */}
+      <Pressable 
+        style={styles.fab} 
+        onPress={() => navigation.navigate('ReportCategory', {
+          lat: coords.latitude,
+          lng: coords.longitude,
+        })}
+      >
         <Feather name="plus" size={26} color="#FFFFFF" />
       </Pressable>
     </View>
@@ -323,7 +329,7 @@ const styles = StyleSheet.create({
   fab: {
     position: 'absolute',
     right: 16,
-    bottom: 90, // Raised above the floating bottom bar
+    bottom: 90,
     width: 56,
     height: 56,
     borderRadius: radii.pill,
@@ -340,7 +346,7 @@ const styles = StyleSheet.create({
   },
   warnButton: { 
     position: 'absolute', 
-    bottom: 90, // Raised above the floating bottom bar
+    bottom: 90, 
     left: 16, 
     backgroundColor: colors.caution,
     borderRadius: radii.pill, 

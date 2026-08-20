@@ -1,11 +1,11 @@
 import React, { useRef, useState } from 'react';
-import { View, StyleSheet, Text, TouchableOpacity } from 'react-native';
+import { View, StyleSheet, Text } from 'react-native';
 import { WebView } from 'react-native-webview';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
-import { RootStackParamList } from '../navigation/AppNavigator';
 import { Feather } from '@expo/vector-icons';
+import { RootStackParamList } from '../navigation/AppNavigator';
 
-import { Button } from '../components';
+import { ScreenHeader, Button } from '../components';
 import { colors, spacing, radii } from '../theme/theme';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'MapPointPicker'>;
@@ -18,37 +18,19 @@ function buildPickerHtml(lat: number, lng: number) {
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
   <style>
-    html, body, #map { height: 100%; margin: 0; padding: 0; background: #F7F5FA; }
-    .leaflet-tile { filter: sepia(0.2) hue-rotate(240deg) saturate(0.5); }
-    
-    /* Static Center Crosshair Pin CSS */
-    .center-pin {
-      position: absolute; top: 50%; left: 50%; transform: translate(-50%, -100%); z-index: 1000;
-      animation: bounce-drop 1.5s infinite cubic-bezier(0.28, 0.84, 0.42, 1);
-      pointer-events: none;
-    }
-    @keyframes bounce-drop { 0%, 100% { transform: translate(-50%, -100%); } 50% { transform: translate(-50%, calc(-100% - 15px)); } }
+    html, body, #map { height: 100%; margin: 0; padding: 0; }
   </style>
 </head>
 <body>
   <div id="map"></div>
-  
-  <!-- Center Bouncing Pin -->
-  <div class="center-pin">
-    <svg width="40" height="40" viewBox="0 0 24 24" fill="#6B21A8" stroke="#fff" stroke-width="1.5">
-      <path d="M12 21s7-6.6 7-12a7 7 0 0 0-14 0c0 5.4 7 12 7 12Z"/>
-      <circle cx="12" cy="9" r="2.5" fill="#fff"/>
-    </svg>
-  </div>
-
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
   <script>
-    const map = L.map('map', { zoomControl: false }).setView([${lat}, ${lng}], 15);
+    const map = L.map('map', { zoomControl: false }).setView([${lat}, ${lng}], 16);
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { 
       attribution: '&copy; OpenStreetMap' 
     }).addTo(map);
 
-    function reportPoint() {
+    function reportCenter() {
       const center = map.getCenter();
       window.ReactNativeWebView.postMessage(JSON.stringify({
         type: 'POINT_PICKED',
@@ -57,15 +39,16 @@ function buildPickerHtml(lat: number, lng: number) {
       }));
     }
 
-    // Report continuously as user pans
-    map.on('moveend', reportPoint);
+    reportCenter();
+    map.on('move', reportCenter);
+    map.on('moveend', reportCenter);
   </script>
 </body>
 </html>`;
 }
 
 export default function MapPointPickerScreen({ route, navigation }: Props) {
-  const { initialLat = 23.8103, initialLng = 90.4125, targetField } = route.params;
+  const { title, initialLat = 23.8103, initialLng = 90.4125, targetField } = route.params;
   const webViewRef = useRef<WebView>(null);
   const [picked, setPicked] = useState<{ lat: number; lng: number }>({ lat: initialLat, lng: initialLng });
 
@@ -80,63 +63,97 @@ export default function MapPointPickerScreen({ route, navigation }: Props) {
 
   const confirmPoint = () => {
     if (!picked) return;
-    navigation.navigate('JourneySetup', {
-      pickedLat: picked.lat,
-      pickedLng: picked.lng,
-      targetField,
-    });
+
+    if (targetField === 'report') {
+      navigation.navigate('ReportCategory', {
+        lat: picked.lat,
+        lng: picked.lng,
+      });
+    } else {
+      navigation.navigate('JourneySetup', {
+        pickedLat: picked.lat,
+        pickedLng: picked.lng,
+        targetField,
+      });
+    }
   };
 
   return (
     <View style={styles.container}>
-      
-      {/* Floating Top Header */}
-      <View style={styles.topCard}>
-        <TouchableOpacity onPress={() => navigation.goBack()} style={{ padding: 4 }}>
-          <Feather name="x" size={24} color={colors.text} />
-        </TouchableOpacity>
-        <Text style={styles.topTitle}>Drag map to set location</Text>
+      <View style={styles.headerWrap}>
+        <ScreenHeader title={title} subtitle="Pan the map to position the center pin on target location" />
       </View>
 
-      <WebView
-        ref={webViewRef}
-        source={{ html: buildPickerHtml(initialLat, initialLng) }}
-        onMessage={handleMessage}
-        style={styles.map}
-        originWhitelist={['*']}
-      />
+      <View style={styles.mapContainer}>
+        <WebView
+          ref={webViewRef}
+          source={{ html: buildPickerHtml(initialLat, initialLng) }}
+          onMessage={handleMessage}
+          style={styles.map}
+          originWhitelist={['*']}
+        />
 
-      {/* Floating Bottom Card */}
-      <View style={styles.bottomCard}>
-        <Text style={styles.hint}>Selected Coordinates</Text>
-        <Text style={styles.locationTitle}>
-          {picked.lat.toFixed(5)}, {picked.lng.toFixed(5)}
-        </Text>
-        <Button label="Confirm Location" onPress={confirmPoint} />
+        {/* Center Target Pin */}
+        <View style={styles.centerPinWrap} pointerEvents="none">
+          <View style={styles.pinShadow} />
+          <View style={styles.pinIcon}>
+            <Feather name="map-pin" size={36} color={colors.primary} />
+          </View>
+        </View>
       </View>
 
+      <View style={styles.bottomBar}>
+        <View style={styles.coordDisplay}>
+          <Text style={styles.coordText}>
+            Target: {picked.lat.toFixed(5)}, {picked.lng.toFixed(5)}
+          </Text>
+        </View>
+        <Button
+          label="Set This Location"
+          variant="primary"
+          onPress={confirmPoint}
+        />
+      </View>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: colors.bg },
+  container: { flex: 1, backgroundColor: '#FFFFFF' },
+  headerWrap: { padding: spacing.lg, paddingBottom: spacing.xs },
+  mapContainer: { flex: 1, position: 'relative' },
   map: { flex: 1 },
-  
-  topCard: {
-    position: 'absolute', top: 50, left: 16, right: 16, zIndex: 10,
-    backgroundColor: colors.cardBg, borderRadius: radii.md, padding: 12, paddingHorizontal: 16,
-    flexDirection: 'row', alignItems: 'center', gap: 12,
-    elevation: 8, shadowColor: '#000', shadowOpacity: 0.15, shadowRadius: 10, shadowOffset: { width: 0, height: 4 }
+  centerPinWrap: {
+    position: 'absolute',
+    top: '50%',
+    left: '50%',
+    transform: [{ translateX: -18 }, { translateY: -36 }],
+    alignItems: 'center',
+    justifyContent: 'center',
+    zIndex: 10,
   },
-  topTitle: { fontSize: 16, fontWeight: '700', color: colors.text },
-
-  bottomCard: {
-    position: 'absolute', bottom: 0, left: 0, right: 0, zIndex: 10,
-    backgroundColor: colors.cardBg, borderTopLeftRadius: 24, borderTopRightRadius: 24,
-    padding: 24, paddingBottom: 34,
-    elevation: 16, shadowColor: '#000', shadowOpacity: 0.2, shadowRadius: 15, shadowOffset: { width: 0, height: -4 }
+  pinIcon: {
+    shadowColor: '#000',
+    shadowOpacity: 0.3,
+    shadowRadius: 6,
+    shadowOffset: { width: 0, height: 3 },
   },
-  hint: { fontSize: 13, color: colors.text2, marginBottom: 4 },
-  locationTitle: { fontSize: 16, fontWeight: '800', color: colors.text, marginBottom: 16 },
+  pinShadow: {
+    position: 'absolute',
+    bottom: -2,
+    width: 10,
+    height: 4,
+    borderRadius: 5,
+    backgroundColor: 'rgba(0,0,0,0.35)',
+  },
+  bottomBar: { 
+    padding: spacing.lg, 
+    backgroundColor: '#FFFFFF',
+    borderTopWidth: 1,
+    borderTopColor: colors.border,
+    gap: spacing.sm,
+    elevation: 8,
+  },
+  coordDisplay: { alignItems: 'center' },
+  coordText: { fontSize: 13, color: colors.textSecondary, fontWeight: '700' },
 });
